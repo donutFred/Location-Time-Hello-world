@@ -24,14 +24,26 @@ const locStatus = document.getElementById("locationStatus");
 const locData = document.getElementById("locationData");
 const locErr = document.getElementById("locationError");
 
-let map; // Leaflet map instance
-let accuracyCircle;
-let marker;
-
 // Weather elements
 const wxStatus = document.getElementById("weatherStatus");
 const wxData = document.getElementById("weatherData");
 const wxErr = document.getElementById("weatherError");
+
+// Leaflet instances
+let map, marker, accuracyCircle;
+
+function initMapIfNeeded(lat, lon, zoom = 15) {
+  if (!map) {
+    map = L.map("map").setView([lat, lon], zoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+  } else {
+    map.setView([lat, lon], map.getZoom() || zoom);
+  }
+}
 
 function showPosition(pos) {
   const { latitude, longitude, accuracy } = pos.coords;
@@ -44,27 +56,17 @@ function showPosition(pos) {
   locData.classList.remove("hidden");
   locErr.classList.add("hidden");
 
-  // Initialize Leaflet map (first time only)
-  if (!map) {
-    map = L.map("map");
-    // OSM tiles + attribution
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
-  }
+  // Init/center map first
+  initMapIfNeeded(latitude, longitude);
 
   // Place/Update marker & accuracy circle
-  if (marker) {
-    marker.setLatLng([latitude, longitude]);
-  } else {
+  if (!marker) {
     marker = L.marker([latitude, longitude]).addTo(map);
+  } else {
+    marker.setLatLng([latitude, longitude]);
   }
 
-  if (accuracyCircle) {
-    accuracyCircle.setLatLng([latitude, longitude]).setRadius(accuracy);
-  } else {
+  if (!accuracyCircle) {
     accuracyCircle = L.circle([latitude, longitude], {
       radius: accuracy,
       color: "#22d3ee",
@@ -72,10 +74,9 @@ function showPosition(pos) {
       fillOpacity: 0.15,
       weight: 1,
     }).addTo(map);
+  } else {
+    accuracyCircle.setLatLng([latitude, longitude]).setRadius(accuracy);
   }
-
-  // Fit the map to the accuracy circle bounds (nice first view)
-  map.fitBounds(accuracyCircle.getBounds(), { maxZoom: 15 });
 
   // Load weather for these coordinates
   fetchWeather(latitude, longitude);
@@ -84,34 +85,38 @@ function showPosition(pos) {
 function showError(err) {
   locData.classList.add("hidden");
   locErr.classList.remove("hidden");
+  wxData.classList.add("hidden");
+  wxStatus.textContent = "";
 
   switch (err.code) {
     case err.PERMISSION_DENIED:
       locStatus.textContent = "Permission denied.";
       locErr.textContent =
-        "We can’t show your location or map without permission. You can still see your current time.";
-      wxStatus.textContent = "Weather requires your approximate location.";
+        "We can’t show your location or map without permission. You can still see your time.";
+      wxErr.classList.remove("hidden");
+      wxErr.textContent = "Weather requires your approximate location.";
       break;
     case err.POSITION_UNAVAILABLE:
       locStatus.textContent = "Location unavailable.";
-      locErr.textContent =
-        "We couldn’t determine your location. Check your network or GPS.";
-      wxStatus.textContent = "Weather requires a location.";
+      locErr.textContent = "We couldn’t determine your location.";
+      wxErr.classList.remove("hidden");
+      wxErr.textContent = "Weather requires a location.";
       break;
     case err.TIMEOUT:
       locStatus.textContent = "Location timed out.";
-      locErr.textContent =
-        "Getting your position took too long. Please try again.";
-      wxStatus.textContent = "Weather requires a location.";
+      locErr.textContent = "Getting your position took too long.";
+      wxErr.classList.remove("hidden");
+      wxErr.textContent = "Weather requires a location.";
       break;
     default:
       locStatus.textContent = "Location error.";
       locErr.textContent = "An unknown error occurred.";
-      wxStatus.textContent = "Weather requires a location.";
+      wxErr.classList.remove("hidden");
+      wxErr.textContent = "Weather requires a location.";
   }
 }
 
-// Request location when the page loads (requires HTTPS)
+// Request location when the page loads (HTTPS required on most browsers)
 if ("geolocation" in navigator) {
   locStatus.textContent = "Requesting your location…";
   navigator.geolocation.getCurrentPosition(showPosition, showError, {
@@ -182,7 +187,7 @@ async function fetchWeather(lat, lon) {
   try {
     wxStatus.textContent = "Fetching weather…";
 
-    // Open‑Meteo current weather (no key). Using 2026-style "current=" parameter.
+    // Open‑Meteo "current" variables (no API key, CORS-friendly)
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day` +

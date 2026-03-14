@@ -52,7 +52,7 @@
           <a
             href="https://www.openstreetmap.org/copyright"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener"
             >OpenStreetMap</a
           >
           contributors
@@ -85,9 +85,10 @@
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
+      defer
     ></script>
 
-    <!-- Your script (must be last so the DOM exists) -->
-    <script src="script.js"></script>
+    <!-- Your script (defer so DOM is parsed first) -->
+    <script src="script.js" defer></script>
   </body>
 </html>
