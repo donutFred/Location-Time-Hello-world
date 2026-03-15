@@ -57,7 +57,13 @@
           <div id="updatedInfo" class="note">Updated: —</div>
 
           <div id="locationStatus" class="status"></div>
-          <button id="retryLocationButton" class="retry-location" style="display:none; margin-top:10px;">Retry location</button>
+          <button
+            id="retryLocationButton"
+            class="retry-location"
+            style="display: none; margin-top: 10px"
+          >
+            Retry location
+          </button>
           <div id="locationData" class="data hidden">
             <div>
               <strong>Lat/Lon:</strong> <span id="lat">—</span>,
@@ -89,9 +95,7 @@
                   <strong>Temperature:</strong> <span id="wxTemp">—</span>
                 </div>
                 <div><strong>Wind:</strong> <span id="wxWind">—</span></div>
-                <div>
-                  <strong>Humidity:</strong> <span id="wxHum">—</span>
-                </div>
+                <div><strong>Humidity:</strong> <span id="wxHum">—</span></div>
               </div>
             </div>
           </div>
@@ -136,28 +140,60 @@
 
       <section class="card full-width" id="settingsSection">
         <h2>Configurable Alert Settings</h2>
-        <p class="note">Set the alert levels (caution and alarm) for wind gusts and temperature. Caution triggers a warning zone and alarm triggers a critical zone in forecast coloring.</p>
+        <p class="note">
+          Set the alert levels (caution and alarm) for wind gusts and
+          temperature. Caution triggers a warning zone and alarm triggers a
+          critical zone in forecast coloring.
+        </p>
         <div class="settings-group group-wind">
           <div class="gust-scale-wrapper">
             <div class="gust-scale-caption">Wind gust thresholds</div>
             <div id="gustScaleBar" class="gust-scale-bar">
               <div class="gust-scale-input-area">
-                <div id="cautionInputWrapper" class="gust-scale-input-wrapper" title="Caution">
-                  <label>Caution
-                    <input id="maxWindGustCaution" type="number" min="0" value="30" />
+                <div
+                  id="cautionInputWrapper"
+                  class="gust-scale-input-wrapper"
+                  title="Caution"
+                >
+                  <label
+                    >Caution
+                    <input
+                      id="maxWindGustCaution"
+                      type="number"
+                      min="0"
+                      value="30"
+                    />
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
-                <div id="alarmInputWrapper" class="gust-scale-input-wrapper" title="Alarm">
-                  <label>Alarm
-                    <input id="maxWindGustAlarm" type="number" min="0" value="50" />
+                <div
+                  id="alarmInputWrapper"
+                  class="gust-scale-input-wrapper"
+                  title="Alarm"
+                >
+                  <label
+                    >Alarm
+                    <input
+                      id="maxWindGustAlarm"
+                      type="number"
+                      min="0"
+                      value="50"
+                    />
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
               </div>
               <div id="gustScaleFill" class="gust-scale-fill"></div>
-              <div id="gustCautionMarker" class="gust-scale-marker" title="Caution"></div>
-              <div id="gustAlarmMarker" class="gust-scale-marker" title="Alarm"></div>
+              <div
+                id="gustCautionMarker"
+                class="gust-scale-marker"
+                title="Caution"
+              ></div>
+              <div
+                id="gustAlarmMarker"
+                class="gust-scale-marker"
+                title="Alarm"
+              ></div>
             </div>
             <div class="gust-scale-tips">
               <span id="gustNormalLabel">Normal</span>
@@ -174,22 +210,40 @@
             <div class="gust-scale-caption">Temperature thresholds</div>
             <div id="tempScaleBar" class="gust-scale-bar">
               <div class="gust-scale-input-area">
-                <div id="tempCautionInputWrapper" class="gust-scale-input-wrapper" title="Caution">
-                  <label>Caution
+                <div
+                  id="tempCautionInputWrapper"
+                  class="gust-scale-input-wrapper"
+                  title="Caution"
+                >
+                  <label
+                    >Caution
                     <input id="maxTempCaution" type="number" value="30" />
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
-                <div id="tempAlarmInputWrapper" class="gust-scale-input-wrapper" title="Alarm">
-                  <label>Alarm
+                <div
+                  id="tempAlarmInputWrapper"
+                  class="gust-scale-input-wrapper"
+                  title="Alarm"
+                >
+                  <label
+                    >Alarm
                     <input id="maxTempAlarm" type="number" value="40" />
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
               </div>
               <div id="tempScaleFill" class="gust-scale-fill"></div>
-              <div id="tempCautionMarker" class="gust-scale-marker" title="Caution"></div>
-              <div id="tempAlarmMarker" class="gust-scale-marker" title="Alarm"></div>
+              <div
+                id="tempCautionMarker"
+                class="gust-scale-marker"
+                title="Caution"
+              ></div>
+              <div
+                id="tempAlarmMarker"
+                class="gust-scale-marker"
+                title="Alarm"
+              ></div>
             </div>
             <div class="gust-scale-tips">
               <span id="tempNormalLabel">Normal</span>

@@ -193,7 +193,6 @@ function updateTempScaleBar(currentSettings = settings) {
   });
 }
 
-
 function applySettingsToUI(currentSettings = settings) {
   document.getElementById("maxWindGustAlarm").value =
     currentSettings.maxWindGustAlarm;
@@ -454,7 +453,6 @@ if ("geolocation" in navigator) {
   wxStatus.textContent = "Weather requires a location.";
 }
 
-
 // Retry button
 const retryButton = document.getElementById("retryLocationButton");
 if (retryButton) {
@@ -473,7 +471,6 @@ if (retryButton) {
     }
   });
 }
-
 
 // ---------- Weather (Open‑Meteo, no API key) ----------
 const WMO_DESCRIPTIONS = {
@@ -906,8 +903,8 @@ function buildForecast(data) {
       segment.timeClass === "time-day"
         ? "☀"
         : segment.timeClass === "time-night"
-        ? "🌙"
-        : "☀";
+          ? "🌙"
+          : "☀";
 
     if (
       !symbolRanges.length ||
@@ -1168,12 +1165,20 @@ function buildForecast(data) {
     buckets.forEach((bucket) => {
       const period = entry.periods[bucket];
       const tempCell = document.createElement("td");
-      if (period && period.minTemp !== Infinity && period.maxTemp !== -Infinity) {
+      if (
+        period &&
+        period.minTemp !== Infinity &&
+        period.maxTemp !== -Infinity
+      ) {
         tempCell.textContent = `${Math.round(period.minTemp)}-${Math.round(period.maxTemp)}°C`;
-        if (period.minTemp <= settings.minTempAlarm) tempCell.classList.add("forecast-alarm-cold");
-        else if (period.minTemp <= settings.minTempCaution) tempCell.classList.add("forecast-caution-cold");
-        else if (period.maxTemp >= settings.maxTempAlarm) tempCell.classList.add("forecast-alarm");
-        else if (period.maxTemp >= settings.maxTempCaution) tempCell.classList.add("forecast-warning");
+        if (period.minTemp <= settings.minTempAlarm)
+          tempCell.classList.add("forecast-alarm-cold");
+        else if (period.minTemp <= settings.minTempCaution)
+          tempCell.classList.add("forecast-caution-cold");
+        else if (period.maxTemp >= settings.maxTempAlarm)
+          tempCell.classList.add("forecast-alarm");
+        else if (period.maxTemp >= settings.maxTempCaution)
+          tempCell.classList.add("forecast-warning");
       } else {
         tempCell.textContent = "—";
       }
@@ -1186,8 +1191,10 @@ function buildForecast(data) {
       const gustCell = document.createElement("td");
       if (period && period.maxGust !== -Infinity) {
         gustCell.textContent = `${Math.round(period.maxGust)} km/h ${period.maxGustDir !== undefined ? bearingArrow(period.maxGustDir) + " " + degToCompass(period.maxGustDir) : ""}`;
-        if (period.maxGust >= settings.maxWindGustAlarm) gustCell.classList.add("forecast-alarm");
-        else if (period.maxGust >= settings.maxWindGustCaution) gustCell.classList.add("forecast-warning");
+        if (period.maxGust >= settings.maxWindGustAlarm)
+          gustCell.classList.add("forecast-alarm");
+        else if (period.maxGust >= settings.maxWindGustCaution)
+          gustCell.classList.add("forecast-warning");
       } else {
         gustCell.textContent = "—";
       }
