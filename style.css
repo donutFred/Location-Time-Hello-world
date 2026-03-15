@@ -18,9 +18,7 @@ body {
 }
 body {
   margin: 0;
-  background:
-    radial-gradient(1000px 600px at 10% 0%, rgba(11, 18, 32, 0.7), rgba(7, 11, 20, 1)),
-    linear-gradient(180deg, #101a31 0%, #0a121f 100%);
+  background: #000;
   color: var(--fg);
   font:
     16px/1.5 system-ui,
@@ -29,6 +27,18 @@ body {
     Roboto,
     Arial,
     sans-serif;
+}
+
+#forecastTable24,
+#forecastTableSummary {
+  background: #000;
+}
+
+#forecastTable24 th,
+#forecastTable24 td,
+#forecastTableSummary th,
+#forecastTableSummary td {
+  background: transparent;
 }
 
 .container {
@@ -122,9 +132,14 @@ body {
 }
 
 .gust-scale-wrapper {
-  margin-top: 18px;
+  margin-top: 30px;
   width: 100%;
   position: relative;
+}
+
+.settings-group {
+  display: grid;
+  gap: 26px;
 }
 
 .gust-scale-caption {
@@ -153,9 +168,13 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  top: -62px;
+  top: -72px;
   height: 52px;
   pointer-events: none;
+}
+
+.gust-scale-input-area.bottom {
+  top: 38px;
 }
 
 .gust-scale-input-wrapper {
@@ -168,6 +187,31 @@ body {
   gap: 2px;
   pointer-events: auto;
   z-index: 10;
+}
+
+.gust-scale-input-wrapper.caution label {
+  color: #ffb347;
+}
+
+.gust-scale-input-wrapper.alarm label {
+  color: #ff6f6f;
+}
+
+.threshold-status {
+  width: 100%;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #bfcffd;
+  margin: 8px 0 2px;
+}
+
+.threshold-legend.center {
+  text-align: center;
+  font-weight: 600;
+}
+
+.threshold-status.bottom {
+  margin-top: 6px;
 }
 
 .gust-scale-input-wrapper label {
@@ -216,8 +260,6 @@ body {
   flex: 1;
   text-align: center;
 }
-
-
 
 .title-subtitle {
   margin: 0;
@@ -316,17 +358,9 @@ body {
     width: 100%;
   }
 }
-  .container {
-    grid-template-columns: 1fr 1fr;
-  }
-  .container .card {
-    margin: 0;
-  }
-  .card.full-width {
-    grid-column: 1 / -1;
-  }
-}
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   color: #d8e6ff;
   text-shadow: 0 1px 8px rgba(35, 63, 124, 0.65);
 }
@@ -493,12 +527,20 @@ footer .final-note {
 }
 
 #forecastTable24 thead th.time-twilight-morning {
-  background-image: linear-gradient(to right, rgba(21, 26, 43, 0.9), rgba(135, 206, 235, 0.6));
+  background-image: linear-gradient(
+    to right,
+    rgba(21, 26, 43, 0.9),
+    rgba(70, 130, 180, 0.7)
+  );
   color: #111;
 }
 
 #forecastTable24 thead th.time-twilight-evening {
-  background-image: linear-gradient(to right, rgba(70, 130, 180, 0.7), rgba(21, 26, 43, 0.9));
+  background-image: linear-gradient(
+    to right,
+    rgba(70, 130, 180, 0.7),
+    rgba(21, 26, 43, 0.9)
+  );
   color: #111;
 }
 
@@ -516,8 +558,8 @@ footer .final-note {
 }
 
 #forecastTable24 thead th,
-#forecastTable24 tbody tr:nth-child(-n+2) th,
-#forecastTable24 tbody tr:nth-child(-n+2) td {
+#forecastTable24 tbody tr:nth-child(-n + 2) th,
+#forecastTable24 tbody tr:nth-child(-n + 2) td {
   vertical-align: middle;
 }
 
@@ -547,6 +589,37 @@ footer .final-note {
   color: #ffffff;
 }
 
+#forecast24SymbolRow th.time-day,
+#forecast24SymbolRow th.time-night,
+#forecast24SymbolRow th.time-twilight-morning,
+#forecast24SymbolRow th.time-twilight-evening {
+  color: #fff;
+}
+
+#forecast24SymbolRow th.time-day {
+  background-color: rgba(70, 130, 180, 0.7);
+}
+
+#forecast24SymbolRow th.time-twilight-morning {
+  background-image: linear-gradient(
+    to right,
+    rgba(21, 26, 43, 0.9),
+    rgba(70, 130, 180, 0.7)
+  );
+}
+
+#forecast24SymbolRow th.time-twilight-evening {
+  background-image: linear-gradient(
+    to right,
+    rgba(70, 130, 180, 0.7),
+    rgba(21, 26, 43, 0.9)
+  );
+}
+
+#forecast24SymbolRow th.time-night {
+  background-color: rgba(21, 26, 43, 0.9);
+}
+
 #forecastTable24 .symbol-cell {
   white-space: nowrap;
   font-size: 1.3rem;
@@ -564,20 +637,24 @@ footer .final-note {
   font-size: 1em;
 }
 
-.forecast-warning {
-  background-color: rgba(255, 165, 0, 0.2);
+#forecastTable24 td.forecast-warning,
+#forecastTableSummary td.forecast-warning {
+  background-color: rgba(255, 165, 0, 0.2) !important;
 }
 
-.forecast-alarm {
-  background-color: rgba(255, 0, 0, 0.25);
+#forecastTable24 td.forecast-alarm,
+#forecastTableSummary td.forecast-alarm {
+  background-color: rgba(255, 0, 0, 0.25) !important;
 }
 
-.forecast-caution-cold {
-  background-color: rgba(135, 206, 250, 0.35); /* existing alarm blue */
+#forecastTable24 td.forecast-caution-cold,
+#forecastTableSummary td.forecast-caution-cold {
+  background-color: rgba(135, 206, 250, 0.35) !important;
 }
 
-.forecast-alarm-cold {
-  background-color: rgba(30, 58, 138, 0.45); /* darker blue */
+#forecastTable24 td.forecast-alarm-cold,
+#forecastTableSummary td.forecast-alarm-cold {
+  background-color: rgba(30, 58, 138, 0.45) !important;
 }
 
 .settings-grid {
@@ -698,6 +775,14 @@ footer .final-note {
   transform: translateX(-50%);
 }
 
+.gust-scale-marker.caution {
+  background-color: rgba(255, 165, 0, 1);
+}
+
+.gust-scale-marker.alarm {
+  background-color: rgba(255, 0, 0, 1);
+}
+
 .gust-scale-tips {
   display: flex;
   justify-content: space-between;
@@ -755,16 +840,22 @@ footer .final-note {
   color: rgba(255, 0, 0, 1);
 }
 
-
-#saveSettingsButton {
+#saveSettingsButton,
+#resetSettingsButton {
   font-size: 1.05rem;
   font-weight: 700;
   padding: 10px 18px;
-  color: #10243e;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  min-width: 160px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 10px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+#saveSettingsButton {
+  color: #10243e;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   box-shadow: 0 5px 14px rgba(62, 207, 223, 0.35);
 }
 
@@ -772,6 +863,20 @@ footer .final-note {
 #saveSettingsButton:focus {
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(62, 207, 223, 0.45);
+}
+
+#resetSettingsButton {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+#resetSettingsButton:hover,
+#resetSettingsButton:focus {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
 .error {

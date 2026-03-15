@@ -43,6 +43,93 @@ function setPageSectionsVisible(visible) {
   if (footer) footer.style.display = visible ? "block" : "none";
 }
 
+function setManualLocationVisible(visible) {
+  const el = document.getElementById("manualLocationFallback");
+  if (!el) return;
+  el.classList.toggle("hidden", !visible);
+}
+
+function setManualLocationMessage(message = "", isError = false) {
+  const el = document.getElementById("manualLocationMessage");
+  if (!el) return;
+  el.textContent = message;
+  el.style.display = message ? "block" : "none";
+  el.style.color = isError ? "#ff6f9e" : "#9bb6d6";
+}
+
+async function geocodePlaceName(query) {
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(
+    query,
+  )}`;
+  const response = await fetch(url, {
+    headers: { "User-Agent": "WeatherWarning/1.0" },
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const results = await response.json();
+  if (!results?.length) throw new Error("No matching location found");
+  const place = results[0];
+  return {
+    latitude: Number(place.lat),
+    longitude: Number(place.lon),
+    displayName: place.display_name,
+  };
+}
+
+function applyManualLocation(lat, lon, locationLabel) {
+  locStatus.textContent = "Location set manually.";
+  setManualLocationMessage("", false);
+  setManualLocationVisible(false);
+  setPageSectionsVisible(true);
+
+  const fakePosition = {
+    coords: {
+      latitude: lat,
+      longitude: lon,
+      accuracy: 100,
+    },
+  };
+
+  if (locationLabel) {
+    const addressEl = document.getElementById("address");
+    if (addressEl) addressEl.textContent = locationLabel;
+  }
+
+  showPosition(fakePosition);
+}
+
+// Timeout guard for geolocation being stuck in pending state
+const LOCATION_WAIT_LIMIT_MS = 15000;
+let locationWaitTimer = null;
+
+function clearLocationWaitTimer() {
+  if (locationWaitTimer) {
+    clearTimeout(locationWaitTimer);
+    locationWaitTimer = null;
+  }
+}
+
+function startLocationWaitTimer() {
+  clearLocationWaitTimer();
+  locationWaitTimer = setTimeout(() => {
+    if (
+      locStatus.textContent.includes("Waiting for your location") ||
+      locStatus.textContent.includes("Retrying location")
+    ) {
+      setPageSectionsVisible(false);
+      locStatus.textContent =
+        "Still waiting for location. Please check location permissions/settings.";
+      locErr.classList.remove("hidden");
+      locErr.textContent =
+        "Location request is taking too long. Ensure your browser allows location access, refresh, and use Retry location.";
+      wxStatus.textContent = "Weather requires your location.";
+      wxErr.classList.remove("hidden");
+      wxErr.textContent = "Location timeout, unable to load weather.";
+      const retryButton = document.getElementById("retryLocationButton");
+      if (retryButton) retryButton.style.display = "block";
+    }
+  }, LOCATION_WAIT_LIMIT_MS);
+}
+
 // Weather elements
 const wxStatus = document.getElementById("weatherStatus");
 const wxData = document.getElementById("weatherData");
@@ -56,7 +143,7 @@ const SETTINGS_KEY = "weatherWarningSettings";
 const DEFAULT_SETTINGS = {
   maxWindGustAlarm: 50,
   maxWindGustCaution: 30,
-  minTempAlarm: 0,
+  minTempAlarm: 5,
   minTempCaution: 10,
   maxTempAlarm: 40,
   maxTempCaution: 30,
@@ -105,9 +192,15 @@ function updateScaleBar(config) {
   const alarmMarker = document.getElementById(alarmMarkerId);
   const cautionInputWrapper = document.getElementById(cautionInputWrapperId);
   const alarmInputWrapper = document.getElementById(alarmInputWrapperId);
-  const normalLabel = document.getElementById(normalLabelId);
-  const cautionLabel = document.getElementById(cautionLabelId);
-  const alarmLabel = document.getElementById(alarmLabelId);
+  const normalLabel = normalLabelId
+    ? document.getElementById(normalLabelId)
+    : null;
+  const cautionLabel = cautionLabelId
+    ? document.getElementById(cautionLabelId)
+    : null;
+  const alarmLabel = alarmLabelId
+    ? document.getElementById(alarmLabelId)
+    : null;
 
   if (
     !bar ||
@@ -115,10 +208,7 @@ function updateScaleBar(config) {
     !cautionMarker ||
     !alarmMarker ||
     !cautionInputWrapper ||
-    !alarmInputWrapper ||
-    !normalLabel ||
-    !cautionLabel ||
-    !alarmLabel
+    !alarmInputWrapper
   )
     return;
 
@@ -141,13 +231,18 @@ function updateScaleBar(config) {
   cautionInputWrapper.style.left = `${cautionPct}%`;
   alarmInputWrapper.style.left = `${alarmPct}%`;
 
-  cautionLabel.textContent = `Caution (${caution} ${unit})`;
-  alarmLabel.textContent = `Alarm (${alarm} ${unit})`;
-  normalLabel.textContent = "Normal";
-
-  cautionLabel.style.color = "rgba(255,165,0,1)";
-  alarmLabel.style.color = "rgba(255,0,0,1)";
-  normalLabel.style.color = "#9bb6d6";
+  if (cautionLabel) {
+    cautionLabel.textContent = `Caution (${caution} ${unit})`;
+    cautionLabel.style.color = "rgba(255,165,0,1)";
+  }
+  if (alarmLabel) {
+    alarmLabel.textContent = `Alarm (${alarm} ${unit})`;
+    alarmLabel.style.color = "rgba(255,0,0,1)";
+  }
+  if (normalLabel) {
+    normalLabel.textContent = "Normal";
+    normalLabel.style.color = "#9bb6d6";
+  }
 
   cautionMarker.style.backgroundColor = "rgba(255,165,0,1)";
   alarmMarker.style.backgroundColor = "rgba(255,0,0,1)";
@@ -174,36 +269,78 @@ function updateWindGustBar(currentSettings = settings) {
 }
 
 function updateTempScaleBar(currentSettings = settings) {
-  updateScaleBar({
-    barId: "tempScaleBar",
-    fillId: "tempScaleFill",
-    cautionMarkerId: "tempCautionMarker",
-    alarmMarkerId: "tempAlarmMarker",
-    cautionInputWrapperId: "tempCautionInputWrapper",
-    alarmInputWrapperId: "tempAlarmInputWrapper",
-    normalLabelId: "tempNormalLabel",
-    cautionLabelId: "tempCautionLabel",
-    alarmLabelId: "tempAlarmLabel",
-    cautionValue: currentSettings.maxTempCaution,
-    alarmValue: currentSettings.maxTempAlarm,
-    unit: "°C",
-    normalColour: "transparent",
-    cautionColour: "rgba(135,206,250,0.35)",
-    alarmColour: "rgba(30,58,138,0.45)",
+  const bar = document.getElementById("tempScaleBar");
+  const fill = document.getElementById("tempScaleFill");
+  if (!bar || !fill) return;
+
+  const minAlarm = Number(currentSettings.minTempAlarm);
+  const minCaution = Number(currentSettings.minTempCaution);
+  const maxCaution = Number(currentSettings.maxTempCaution);
+  const maxAlarm = Number(currentSettings.maxTempAlarm);
+
+  const minValue = Math.min(minAlarm, minCaution, maxCaution, maxAlarm, 0);
+  const maxValue = Math.max(minAlarm, minCaution, maxCaution, maxAlarm, 40);
+  const range = Math.max(1, maxValue - minValue);
+
+  const pct = (value) => Math.round(((value - minValue) / range) * 100);
+  const minAlarmPct = pct(minAlarm);
+  const minCautionPct = pct(minCaution);
+  const maxCautionPct = pct(maxCaution);
+  const maxAlarmPct = pct(maxAlarm);
+
+  fill.style.background = `linear-gradient(to right, 
+      rgba(30,58,138,0.45) 0%, rgba(30,58,138,0.45) ${minAlarmPct}%,
+      rgba(135,206,250,0.35) ${minAlarmPct}%, rgba(135,206,250,0.35) ${minCautionPct}%,
+      transparent ${minCautionPct}%, transparent ${maxCautionPct}%,
+      rgba(255,165,0,0.2) ${maxCautionPct}%, rgba(255,165,0,0.2) ${maxAlarmPct}%,
+      rgba(255,0,0,0.25) ${maxAlarmPct}%, rgba(255,0,0,0.25) 100%)`;
+
+  const markers = [
+    ["minTempCautionMarker", minCautionPct],
+    ["minTempAlarmMarker", minAlarmPct],
+    ["maxTempCautionMarker", maxCautionPct],
+    ["maxTempAlarmMarker", maxAlarmPct],
+  ];
+
+  markers.forEach(([id, left]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.left = `${left}%`;
+  });
+
+  const wrappers = [
+    ["minTempCautionInputWrapper", minCautionPct],
+    ["maxTempCautionInputWrapper", maxCautionPct],
+    ["minTempAlarmInputWrapper", minAlarmPct],
+    ["maxTempAlarmInputWrapper", maxAlarmPct],
+  ];
+
+  wrappers.forEach(([id, left]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.left = `${left}%`;
   });
 }
 
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.value = value;
+  }
+}
+
+function getInputNumber(id, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  const v = Number(el.value);
+  return Number.isNaN(v) ? fallback : v;
+}
+
 function applySettingsToUI(currentSettings = settings) {
-  document.getElementById("maxWindGustAlarm").value =
-    currentSettings.maxWindGustAlarm;
-  document.getElementById("maxWindGustCaution").value =
-    currentSettings.maxWindGustCaution;
-  document.getElementById("minTempAlarm").value = currentSettings.minTempAlarm;
-  document.getElementById("minTempCaution").value =
-    currentSettings.minTempCaution;
-  document.getElementById("maxTempAlarm").value = currentSettings.maxTempAlarm;
-  document.getElementById("maxTempCaution").value =
-    currentSettings.maxTempCaution;
+  setInputValue("maxWindGustAlarm", currentSettings.maxWindGustAlarm);
+  setInputValue("maxWindGustCaution", currentSettings.maxWindGustCaution);
+  setInputValue("minTempAlarm", currentSettings.minTempAlarm);
+  setInputValue("minTempCaution", currentSettings.minTempCaution);
+  setInputValue("maxTempAlarm", currentSettings.maxTempAlarm);
+  setInputValue("maxTempCaution", currentSettings.maxTempCaution);
 
   updateWindGustBar(currentSettings);
   updateTempScaleBar(currentSettings);
@@ -211,10 +348,18 @@ function applySettingsToUI(currentSettings = settings) {
 
 function readSettingsFromUI() {
   const loaded = {
-    maxWindGustAlarm: Number(document.getElementById("maxWindGustAlarm").value),
-    maxWindGustCaution: Number(
-      document.getElementById("maxWindGustCaution").value,
+    maxWindGustAlarm: getInputNumber(
+      "maxWindGustAlarm",
+      settings.maxWindGustAlarm,
     ),
+    maxWindGustCaution: getInputNumber(
+      "maxWindGustCaution",
+      settings.maxWindGustCaution,
+    ),
+    minTempAlarm: getInputNumber("minTempAlarm", settings.minTempAlarm),
+    minTempCaution: getInputNumber("minTempCaution", settings.minTempCaution),
+    maxTempAlarm: getInputNumber("maxTempAlarm", settings.maxTempAlarm),
+    maxTempCaution: getInputNumber("maxTempCaution", settings.maxTempCaution),
     minTempAlarm: Number(document.getElementById("minTempAlarm").value),
     minTempCaution: Number(document.getElementById("minTempCaution").value),
     maxTempAlarm: Number(document.getElementById("maxTempAlarm").value),
@@ -309,7 +454,17 @@ function initSettingsListeners() {
   });
 
   const saveBtn = document.getElementById("saveSettingsButton");
+  const resetBtn = document.getElementById("resetSettingsButton");
   const status = document.getElementById("settingsSavedMessage");
+  const showStatus = (text = "Settings saved.") => {
+    if (!status) return;
+    status.textContent = text;
+    status.style.display = "inline";
+    setTimeout(() => {
+      status.style.display = "none";
+    }, 2000);
+  };
+
   if (saveBtn) {
     saveBtn.addEventListener("click", () => {
       settings = readSettingsFromUI();
@@ -318,12 +473,23 @@ function initSettingsListeners() {
       if (window.cachedForecast && window.cachedForecast.time?.length) {
         buildForecast(window.cachedForecast);
       }
-      if (status) {
-        status.style.display = "inline";
-        setTimeout(() => {
-          status.style.display = "none";
-        }, 2000);
+      showStatus("Settings saved.");
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "Are you sure you want to reset your settings to defaults?",
+      );
+      if (!confirmed) return;
+      settings = { ...DEFAULT_SETTINGS };
+      saveSettings();
+      applySettingsToUI();
+      if (window.cachedForecast && window.cachedForecast.time?.length) {
+        buildForecast(window.cachedForecast);
       }
+      showStatus("Defaults restored.");
     });
   }
 }
@@ -342,6 +508,7 @@ function initMapIfNeeded(lat, lon, zoom = 8) {
 }
 
 function showPosition(pos) {
+  clearLocationWaitTimer();
   setPageSectionsVisible(true);
   const retryButton = document.getElementById("retryLocationButton");
   if (retryButton) retryButton.style.display = "none";
@@ -399,6 +566,7 @@ if (releaseDateEl) {
 }
 
 function showError(err) {
+  clearLocationWaitTimer();
   locData.classList.add("hidden");
   locErr.classList.remove("hidden");
   wxData.classList.add("hidden");
@@ -412,9 +580,10 @@ function showError(err) {
     case err.PERMISSION_DENIED:
       locStatus.textContent = "Permission denied.";
       locErr.textContent =
-        "This app needs your location to work. Please allow location access to continue.";
+        "This app needs your location to work. Please allow location access to continue by enabling it in the browser site settings.";
       wxErr.classList.remove("hidden");
-      wxErr.textContent = "Weather requires your approximate location.";
+      wxErr.textContent =
+        "Weather requires your approximate location. Refresh and click Retry location after permission grant.";
       break;
     case err.POSITION_UNAVAILABLE:
       locStatus.textContent = "Location unavailable.";
@@ -424,16 +593,26 @@ function showError(err) {
       break;
     case err.TIMEOUT:
       locStatus.textContent = "Location timed out.";
-      locErr.textContent = "Getting your position took too long.";
+      locErr.textContent =
+        "Getting your position took too long. Try moving to an open area, enable high accuracy, or retry after a moment.";
       wxErr.classList.remove("hidden");
-      wxErr.textContent = "Weather requires a location.";
+      wxErr.textContent =
+        "Weather requires a location. Click Retry location, refresh page, or check browser location permissions.";
       break;
     default:
       locStatus.textContent = "Location error.";
-      locErr.textContent = "An unknown error occurred.";
+      locErr.textContent =
+        "An unknown error occurred. Verify the browser allows location access, refresh, and retry.";
       wxErr.classList.remove("hidden");
-      wxErr.textContent = "Weather requires a location.";
+      wxErr.textContent =
+        "Weather requires a location. Click Retry location, check location services, and ensure HTTPS/localhost.";
   }
+
+  setManualLocationVisible(true);
+  setManualLocationMessage(
+    "Auto location failed. Enter latitude/longitude or suburb/city below.",
+    false,
+  );
 }
 
 // Hide non-essential panels until location is resolved
@@ -442,6 +621,7 @@ setPageSectionsVisible(false);
 // Request location when the page loads (HTTPS required on most browsers)
 if ("geolocation" in navigator) {
   locStatus.textContent = "Waiting for your location...";
+  startLocationWaitTimer();
   navigator.geolocation.getCurrentPosition(showPosition, showError, {
     enableHighAccuracy: true,
     timeout: 10000,
@@ -451,6 +631,10 @@ if ("geolocation" in navigator) {
   setPageSectionsVisible(false);
   locStatus.textContent = "Geolocation not supported in this browser.";
   wxStatus.textContent = "Weather requires a location.";
+  setManualLocationVisible(true);
+  setManualLocationMessage(
+    "No automatic location available. Enter latitude/longitude or suburb/city below.",
+  );
 }
 
 // Retry button
@@ -461,6 +645,7 @@ if (retryButton) {
     locStatus.textContent = "Retrying location...";
     locErr.classList.add("hidden");
     if ("geolocation" in navigator) {
+      startLocationWaitTimer();
       navigator.geolocation.getCurrentPosition(showPosition, showError, {
         enableHighAccuracy: true,
         timeout: 10000,
@@ -469,6 +654,54 @@ if (retryButton) {
     } else {
       locStatus.textContent = "Geolocation not supported in this browser.";
     }
+  });
+}
+
+const manualLocationApplyButton = document.getElementById(
+  "manualLocationApply",
+);
+if (manualLocationApplyButton) {
+  manualLocationApplyButton.addEventListener("click", async () => {
+    const latRaw = document.getElementById("manualLat")?.value?.trim();
+    const lonRaw = document.getElementById("manualLon")?.value?.trim();
+    const placeRaw = document.getElementById("manualPlace")?.value?.trim();
+
+    const lat = Number(latRaw);
+    const lon = Number(lonRaw);
+
+    if (
+      latRaw !== "" &&
+      lonRaw !== "" &&
+      !Number.isNaN(lat) &&
+      !Number.isNaN(lon)
+    ) {
+      applyManualLocation(lat, lon, placeRaw || "Manual coordinates");
+      return;
+    }
+
+    if (placeRaw) {
+      setManualLocationMessage("Geocoding location; please wait...", false);
+      try {
+        const result = await geocodePlaceName(placeRaw);
+        applyManualLocation(
+          result.latitude,
+          result.longitude,
+          result.displayName,
+        );
+      } catch (error) {
+        console.warn(error);
+        setManualLocationMessage(
+          "Could not resolve location name; please check spelling or enter lat/lon.",
+          true,
+        );
+      }
+      return;
+    }
+
+    setManualLocationMessage(
+      "Please enter latitude/longitude or a suburb/city",
+      true,
+    );
   });
 }
 
@@ -897,39 +1130,13 @@ function buildForecast(data) {
   // draw 24-hour symbol row and label row
   const symbolRow = document.getElementById("forecast24SymbolRow");
 
-  const symbolRanges = [];
-  segments.forEach((segment) => {
-    const symbol =
-      segment.timeClass === "time-day"
-        ? "☀"
-        : segment.timeClass === "time-night"
-          ? "🌙"
-          : "☀";
-
-    if (
-      !symbolRanges.length ||
-      symbolRanges[symbolRanges.length - 1].symbol !== symbol
-    ) {
-      symbolRanges.push({
-        symbol,
-        span: 1,
-        timeClass: segment.timeClass,
-      });
-    } else {
-      symbolRanges[symbolRanges.length - 1].span += 1;
-    }
-  });
-
   if (symbolRow) {
     symbolRow.innerHTML = "<th></th>";
-    symbolRanges.forEach((range) => {
+    segments.forEach((segment) => {
       const symbolCell = document.createElement("th");
       symbolCell.classList.add("symbol-cell");
-      symbolCell.classList.add(
-        range.timeClass === "time-day" ? "sun-symbol" : "moon-symbol",
-      );
-      symbolCell.colSpan = range.span;
-      symbolCell.textContent = range.symbol;
+      symbolCell.classList.add(segment.timeClass);
+      symbolCell.textContent = segment.timeClass === "time-night" ? "🌙" : "☀";
       symbolRow.appendChild(symbolCell);
     });
   }
