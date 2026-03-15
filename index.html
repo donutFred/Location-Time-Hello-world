@@ -23,13 +23,20 @@
     />
   </head>
   <body>
-    <main class="container">
-      <h1>Weather Warning</h1>
-      <p class="subtle"><strong>Advanced wind and weather warnings.</strong></p>
-      <p class="subtle">
-        Customised alerts for your location and unique situation.
-      </p>
+    <header class="app-header">
+      <div class="logo-title">
+        <img src="icon.png" alt="Weather logo" class="app-logo" />
+        <div>
+          <h1>Advanced wind and weather warnings for Caravans and Campers.</h1>
+          <p class="subtle title-subtitle">
+            Customised weather alerts to allowing you to plan ahead, stay safe
+            and keep your awning in one piece!
+          </p>
+        </div>
+      </div>
+    </header>
 
+    <main class="container">
       <section class="card full-width" id="lookaheadTop">
         <h2>Lookahead Summary</h2>
         <div id="lookaheadSummary" class="data note">No concern</div>
@@ -40,70 +47,60 @@
       </section>
 
       <section class="card current-grid">
-        <div class="current-left">
-          <div class="pane time-pane">
-            <h2>Your Current Time</h2>
-            <div class="time">
-              <div id="clock" class="clock">—:—</div>
-              <div id="tz" class="tz">Detecting time zone…</div>
-            </div>
-            <div id="updatedInfo" class="note">Updated: —</div>
-
-            <div id="locationStatus" class="status"></div>
-            <div id="locationData" class="data hidden">
-              <div>
-                <strong>Lat/Lon:</strong> <span id="lat">—</span>,
-                <span id="lon">—</span>
-              </div>
-              <div><strong>Address:</strong> <span id="address">—</span></div>
-            </div>
-            <div id="locationError" class="error hidden"></div>
+        <h2>Current</h2>
+        <div class="pane time-pane">
+          <h3>Time</h3>
+          <div class="time">
+            <div id="clock" class="clock">—:—</div>
+            <div id="tz" class="tz">Detecting time zone…</div>
           </div>
+          <div id="updatedInfo" class="note">Updated: —</div>
 
-          <div class="pane weather-pane">
-            <h2>Current Weather</h2>
-            <div id="weatherStatus" class="status">
-              Waiting for your location…
+          <div id="locationStatus" class="status"></div>
+          <button id="retryLocationButton" class="retry-location" style="display:none; margin-top:10px;">Retry location</button>
+          <div id="locationData" class="data hidden">
+            <div>
+              <strong>Lat/Lon:</strong> <span id="lat">—</span>,
+              <span id="lon">—</span>
             </div>
-            <div id="weatherData" class="data hidden">
-              <div class="weather-current-grid">
-                <div class="wx-icon-pane">
-                  <span id="wxIcon" class="wx-icon" aria-hidden="true">—</span>
-                  <div id="wxIconLabel" class="wx-icon-label">
-                    Loading condition...
-                  </div>
-                </div>
-                <div class="weather-current-details">
-                  <div>
-                    <strong>Condition:</strong> <span id="wxDesc">—</span>
-                  </div>
-                  <div>
-                    <strong>Temperature:</strong> <span id="wxTemp">—</span>
-                  </div>
-                  <div><strong>Wind:</strong> <span id="wxWind">—</span></div>
-                  <div>
-                    <strong>Humidity:</strong> <span id="wxHum">—</span>
-                  </div>
+            <div><strong>Address:</strong> <span id="address">—</span></div>
+          </div>
+          <div id="locationError" class="error hidden"></div>
+        </div>
+
+        <div class="pane weather-pane">
+          <h3>Weather</h3>
+          <div id="weatherStatus" class="status">
+            Waiting for your location…
+          </div>
+          <div id="weatherData" class="data hidden">
+            <div class="weather-current-grid">
+              <div class="wx-icon-pane">
+                <span id="wxIcon" class="wx-icon" aria-hidden="true">—</span>
+                <div id="wxIconLabel" class="wx-icon-label">
+                  Loading condition...
                 </div>
               </div>
+              <div class="weather-current-details">
+                <div>
+                  <strong>Condition:</strong> <span id="wxDesc">—</span>
+                </div>
+                <div>
+                  <strong>Temperature:</strong> <span id="wxTemp">—</span>
+                </div>
+                <div><strong>Wind:</strong> <span id="wxWind">—</span></div>
+                <div>
+                  <strong>Humidity:</strong> <span id="wxHum">—</span>
+                </div>
+              </div>
             </div>
-            <div id="weatherError" class="error hidden"></div>
           </div>
+          <div id="weatherError" class="error hidden"></div>
         </div>
 
         <div class="pane map-pane">
           <h2>Map</h2>
           <div id="map" class="map"></div>
-          <p class="note">
-            Map data ©
-            <a
-              href="https://www.openstreetmap.org/copyright"
-              target="_blank"
-              rel="noopener"
-              >OpenStreetMap</a
-            >
-            contributors
-          </p>
         </div>
       </section>
 
@@ -115,6 +112,9 @@
         <div id="forecastData" class="data hidden">
           <table id="forecastTable24" class="forecast-table">
             <thead>
+              <tr id="forecast24SymbolRow">
+                <th></th>
+              </tr>
               <tr id="forecast24HeaderRow">
                 <th></th>
               </tr>
@@ -127,15 +127,7 @@
             morning: 06-11, daytime: 12-17, evening: 18-23, night: 00-05
           </div>
           <table id="forecastTableSummary" class="forecast-table">
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>Condition</th>
-                <th>Temp (min/max)</th>
-                <th>Max Gust</th>
-                <th>Wind</th>
-              </tr>
-            </thead>
+            <thead id="forecastSummaryHeader"></thead>
             <tbody id="forecastRowsSummary"></tbody>
           </table>
         </div>
@@ -144,46 +136,71 @@
 
       <section class="card full-width" id="settingsSection">
         <h2>Configurable Alert Settings</h2>
-        <div class="settings-group">
-          <h3>Wind thresholds</h3>
-          <p class="note">
-            Set thresholds for gust color alerts. Alarm is more severe than
-            caution.
-          </p>
-          <div class="settings-grid">
-            <label
-              >Max Wind Gust Alarm (km/h)
-              <input id="maxWindGustAlarm" type="number" min="0" value="50" />
-            </label>
-            <label
-              >Max Wind Gust Caution (km/h)
-              <input id="maxWindGustCaution" type="number" min="0" value="30" />
-            </label>
+        <p class="note">Set the alert levels (caution and alarm) for wind gusts and temperature. Caution triggers a warning zone and alarm triggers a critical zone in forecast coloring.</p>
+        <div class="settings-group group-wind">
+          <div class="gust-scale-wrapper">
+            <div class="gust-scale-caption">Wind gust thresholds</div>
+            <div id="gustScaleBar" class="gust-scale-bar">
+              <div class="gust-scale-input-area">
+                <div id="cautionInputWrapper" class="gust-scale-input-wrapper" title="Caution">
+                  <label>Caution
+                    <input id="maxWindGustCaution" type="number" min="0" value="30" />
+                  </label>
+                  <div class="gust-scale-arrow">▼</div>
+                </div>
+                <div id="alarmInputWrapper" class="gust-scale-input-wrapper" title="Alarm">
+                  <label>Alarm
+                    <input id="maxWindGustAlarm" type="number" min="0" value="50" />
+                  </label>
+                  <div class="gust-scale-arrow">▼</div>
+                </div>
+              </div>
+              <div id="gustScaleFill" class="gust-scale-fill"></div>
+              <div id="gustCautionMarker" class="gust-scale-marker" title="Caution"></div>
+              <div id="gustAlarmMarker" class="gust-scale-marker" title="Alarm"></div>
+            </div>
+            <div class="gust-scale-tips">
+              <span id="gustNormalLabel">Normal</span>
+              <span id="gustCautionLabel">Caution</span>
+              <span id="gustAlarmLabel">Alarm</span>
+            </div>
+            <div class="gust-scale-legend">
+              <span class="legend-part normal">Normal</span>
+              <span class="legend-part caution">Caution</span>
+              <span class="legend-part alarm">Alarm</span>
+            </div>
           </div>
-        </div>
-        <div class="settings-group">
-          <h3>Temperature thresholds</h3>
-          <p class="note">
-            Caution is warning-level, alarm is critical. Min should be below
-            caution; max should be above caution.
-          </p>
-          <div class="settings-grid">
-            <label
-              >Min Temperature Alarm (°C)
-              <input id="minTempAlarm" type="number" value="0" />
-            </label>
-            <label
-              >Min Temperature Caution (°C)
-              <input id="minTempCaution" type="number" value="10" />
-            </label>
-            <label
-              >Max Temperature Alarm (°C)
-              <input id="maxTempAlarm" type="number" value="40" />
-            </label>
-            <label
-              >Max Temperature Caution (°C)
-              <input id="maxTempCaution" type="number" value="30" />
-            </label>
+          <div class="gust-scale-wrapper">
+            <div class="gust-scale-caption">Temperature thresholds</div>
+            <div id="tempScaleBar" class="gust-scale-bar">
+              <div class="gust-scale-input-area">
+                <div id="tempCautionInputWrapper" class="gust-scale-input-wrapper" title="Caution">
+                  <label>Caution
+                    <input id="maxTempCaution" type="number" value="30" />
+                  </label>
+                  <div class="gust-scale-arrow">▼</div>
+                </div>
+                <div id="tempAlarmInputWrapper" class="gust-scale-input-wrapper" title="Alarm">
+                  <label>Alarm
+                    <input id="maxTempAlarm" type="number" value="40" />
+                  </label>
+                  <div class="gust-scale-arrow">▼</div>
+                </div>
+              </div>
+              <div id="tempScaleFill" class="gust-scale-fill"></div>
+              <div id="tempCautionMarker" class="gust-scale-marker" title="Caution"></div>
+              <div id="tempAlarmMarker" class="gust-scale-marker" title="Alarm"></div>
+            </div>
+            <div class="gust-scale-tips">
+              <span id="tempNormalLabel">Normal</span>
+              <span id="tempCautionLabel">Caution</span>
+              <span id="tempAlarmLabel">Alarm</span>
+            </div>
+            <div class="gust-scale-legend">
+              <span class="legend-part normal">Normal</span>
+              <span class="legend-part caution">Caution</span>
+              <span class="legend-part alarm">Alarm</span>
+            </div>
           </div>
         </div>
         <div class="settings-actions">
@@ -195,15 +212,17 @@
       </section>
 
       <footer>
-        <p class="subtle">
-          We don’t send your location anywhere. It stays in your browser.
-        </p>
-        <p class="note">
-          Data sources: OpenStreetMap/Nominatim (reverse geocoding), Open-Meteo
+        <p class="subtle small-text">
+          We don’t send your location anywhere. It stays in your browser. Data
+          sources: OpenStreetMap/Nominatim (reverse geocoding), Open-Meteo
           (current/hourly forecast and wind gust data).
         </p>
-        <p class="note">Map tiles © OpenStreetMap contributors.</p>
-        <p class="note">Any feedback encouraged to steveamor12@gmail.com</p>
+        <p class="note final-note" id="footerFinal">
+          Any feedback encouraged to steveamor12@gmail.com
+        </p>
+        <p class="note" id="releaseNote">
+          Latest release: <span id="releaseDate">—</span>
+        </p>
       </footer>
     </main>
 

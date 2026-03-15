@@ -29,6 +29,20 @@ const locStatus = document.getElementById("locationStatus");
 const locData = document.getElementById("locationData");
 const locErr = document.getElementById("locationError");
 
+function setPageSectionsVisible(visible) {
+  const cards = document.querySelectorAll("main.container .card");
+  const footer = document.querySelector("footer");
+  cards.forEach((card) => {
+    // always keep current-grid visible even when location fails
+    if (card.classList.contains("current-grid")) {
+      card.style.display = "grid";
+    } else {
+      card.style.display = visible ? "" : "none";
+    }
+  });
+  if (footer) footer.style.display = visible ? "block" : "none";
+}
+
 // Weather elements
 const wxStatus = document.getElementById("weatherStatus");
 const wxData = document.getElementById("weatherData");
@@ -69,6 +83,117 @@ function saveSettings() {
   }
 }
 
+function updateScaleBar(config) {
+  const {
+    barId,
+    fillId,
+    cautionMarkerId,
+    alarmMarkerId,
+    cautionInputWrapperId,
+    alarmInputWrapperId,
+    normalLabelId,
+    cautionLabelId,
+    alarmLabelId,
+    cautionValue,
+    alarmValue,
+    unit,
+  } = config;
+
+  const bar = document.getElementById(barId);
+  const barFill = document.getElementById(fillId);
+  const cautionMarker = document.getElementById(cautionMarkerId);
+  const alarmMarker = document.getElementById(alarmMarkerId);
+  const cautionInputWrapper = document.getElementById(cautionInputWrapperId);
+  const alarmInputWrapper = document.getElementById(alarmInputWrapperId);
+  const normalLabel = document.getElementById(normalLabelId);
+  const cautionLabel = document.getElementById(cautionLabelId);
+  const alarmLabel = document.getElementById(alarmLabelId);
+
+  if (
+    !bar ||
+    !barFill ||
+    !cautionMarker ||
+    !alarmMarker ||
+    !cautionInputWrapper ||
+    !alarmInputWrapper ||
+    !normalLabel ||
+    !cautionLabel ||
+    !alarmLabel
+  )
+    return;
+
+  const caution = Number(cautionValue || 0);
+  const alarm = Number(alarmValue || 0);
+  const max = Math.max(alarm, caution, 100);
+
+  const cautionPct = Math.min(100, (caution / max) * 100);
+  const alarmPct = Math.min(100, (alarm / max) * 100);
+
+  const normalColour = config.normalColour || "transparent";
+  const cautionColour = config.cautionColour;
+  const alarmColour = config.alarmColour;
+
+  barFill.style.background = `linear-gradient(to right, ${normalColour} 0%, ${normalColour} ${cautionPct}%, ${cautionColour} ${cautionPct}%, ${cautionColour} ${alarmPct}%, ${alarmColour} ${alarmPct}%, ${alarmColour} 100%)`;
+
+  cautionMarker.style.left = `${cautionPct}%`;
+  alarmMarker.style.left = `${alarmPct}%`;
+
+  cautionInputWrapper.style.left = `${cautionPct}%`;
+  alarmInputWrapper.style.left = `${alarmPct}%`;
+
+  cautionLabel.textContent = `Caution (${caution} ${unit})`;
+  alarmLabel.textContent = `Alarm (${alarm} ${unit})`;
+  normalLabel.textContent = "Normal";
+
+  cautionLabel.style.color = "rgba(255,165,0,1)";
+  alarmLabel.style.color = "rgba(255,0,0,1)";
+  normalLabel.style.color = "#9bb6d6";
+
+  cautionMarker.style.backgroundColor = "rgba(255,165,0,1)";
+  alarmMarker.style.backgroundColor = "rgba(255,0,0,1)";
+}
+
+function updateWindGustBar(currentSettings = settings) {
+  updateScaleBar({
+    barId: "gustScaleBar",
+    fillId: "gustScaleFill",
+    cautionMarkerId: "gustCautionMarker",
+    alarmMarkerId: "gustAlarmMarker",
+    cautionInputWrapperId: "cautionInputWrapper",
+    alarmInputWrapperId: "alarmInputWrapper",
+    normalLabelId: "gustNormalLabel",
+    cautionLabelId: "gustCautionLabel",
+    alarmLabelId: "gustAlarmLabel",
+    cautionValue: currentSettings.maxWindGustCaution,
+    alarmValue: currentSettings.maxWindGustAlarm,
+    unit: "km/h",
+    normalColour: "transparent",
+    cautionColour: "rgba(255,165,0,0.2)",
+    alarmColour: "rgba(255,0,0,0.25)",
+  });
+}
+
+function updateTempScaleBar(currentSettings = settings) {
+  updateScaleBar({
+    barId: "tempScaleBar",
+    fillId: "tempScaleFill",
+    cautionMarkerId: "tempCautionMarker",
+    alarmMarkerId: "tempAlarmMarker",
+    cautionInputWrapperId: "tempCautionInputWrapper",
+    alarmInputWrapperId: "tempAlarmInputWrapper",
+    normalLabelId: "tempNormalLabel",
+    cautionLabelId: "tempCautionLabel",
+    alarmLabelId: "tempAlarmLabel",
+    cautionValue: currentSettings.maxTempCaution,
+    alarmValue: currentSettings.maxTempAlarm,
+    unit: "°C",
+    normalColour: "transparent",
+    cautionColour: "rgba(135,206,250,0.35)",
+    alarmColour: "rgba(30,58,138,0.45)",
+  });
+}
+
+
 function applySettingsToUI(currentSettings = settings) {
   document.getElementById("maxWindGustAlarm").value =
     currentSettings.maxWindGustAlarm;
@@ -80,6 +205,9 @@ function applySettingsToUI(currentSettings = settings) {
   document.getElementById("maxTempAlarm").value = currentSettings.maxTempAlarm;
   document.getElementById("maxTempCaution").value =
     currentSettings.maxTempCaution;
+
+  updateWindGustBar(currentSettings);
+  updateTempScaleBar(currentSettings);
 }
 
 function readSettingsFromUI() {
@@ -215,6 +343,10 @@ function initMapIfNeeded(lat, lon, zoom = 8) {
 }
 
 function showPosition(pos) {
+  setPageSectionsVisible(true);
+  const retryButton = document.getElementById("retryLocationButton");
+  if (retryButton) retryButton.style.display = "none";
+
   const { latitude, longitude, accuracy } = pos.coords;
 
   // Update location text UI
@@ -222,7 +354,7 @@ function showPosition(pos) {
   document.getElementById("lon").textContent = longitude.toFixed(6);
   locData.classList.remove("hidden");
   locErr.classList.add("hidden");
-  locStatus.textContent = "";
+  locStatus.textContent = "Location resolved. Loading weather...";
 
   // Update weather status while we fetch new weather
   wxStatus.textContent = "Loading weather...";
@@ -260,17 +392,28 @@ function showPosition(pos) {
 applySettingsToUI();
 initSettingsListeners();
 
+// release date (adjust as needed)
+const RELEASE_DATE = "2026-03-15";
+const releaseDateEl = document.getElementById("releaseDate");
+if (releaseDateEl) {
+  releaseDateEl.textContent = RELEASE_DATE;
+}
+
 function showError(err) {
   locData.classList.add("hidden");
   locErr.classList.remove("hidden");
   wxData.classList.add("hidden");
   wxStatus.textContent = "";
 
+  setPageSectionsVisible(false);
+  const retryButton = document.getElementById("retryLocationButton");
+  if (retryButton) retryButton.style.display = "block";
+
   switch (err.code) {
     case err.PERMISSION_DENIED:
       locStatus.textContent = "Permission denied.";
       locErr.textContent =
-        "We can’t show your location or map without permission. You can still see your time.";
+        "This app needs your location to work. Please allow location access to continue.";
       wxErr.classList.remove("hidden");
       wxErr.textContent = "Weather requires your approximate location.";
       break;
@@ -294,18 +437,43 @@ function showError(err) {
   }
 }
 
+// Hide non-essential panels until location is resolved
+setPageSectionsVisible(false);
+
 // Request location when the page loads (HTTPS required on most browsers)
 if ("geolocation" in navigator) {
-  locStatus.textContent = "";
+  locStatus.textContent = "Waiting for your location...";
   navigator.geolocation.getCurrentPosition(showPosition, showError, {
     enableHighAccuracy: true,
     timeout: 10000,
     maximumAge: 0,
   });
 } else {
+  setPageSectionsVisible(false);
   locStatus.textContent = "Geolocation not supported in this browser.";
   wxStatus.textContent = "Weather requires a location.";
 }
+
+
+// Retry button
+const retryButton = document.getElementById("retryLocationButton");
+if (retryButton) {
+  retryButton.addEventListener("click", () => {
+    retryButton.style.display = "none";
+    locStatus.textContent = "Retrying location...";
+    locErr.classList.add("hidden");
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(showPosition, showError, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      });
+    } else {
+      locStatus.textContent = "Geolocation not supported in this browser.";
+    }
+  });
+}
+
 
 // ---------- Weather (Open‑Meteo, no API key) ----------
 const WMO_DESCRIPTIONS = {
@@ -729,7 +897,46 @@ function buildForecast(data) {
     });
   }
 
-  // draw headers
+  // draw 24-hour symbol row and label row
+  const symbolRow = document.getElementById("forecast24SymbolRow");
+
+  const symbolRanges = [];
+  segments.forEach((segment) => {
+    const symbol =
+      segment.timeClass === "time-day"
+        ? "☀"
+        : segment.timeClass === "time-night"
+        ? "🌙"
+        : "☀";
+
+    if (
+      !symbolRanges.length ||
+      symbolRanges[symbolRanges.length - 1].symbol !== symbol
+    ) {
+      symbolRanges.push({
+        symbol,
+        span: 1,
+        timeClass: segment.timeClass,
+      });
+    } else {
+      symbolRanges[symbolRanges.length - 1].span += 1;
+    }
+  });
+
+  if (symbolRow) {
+    symbolRow.innerHTML = "<th></th>";
+    symbolRanges.forEach((range) => {
+      const symbolCell = document.createElement("th");
+      symbolCell.classList.add("symbol-cell");
+      symbolCell.classList.add(
+        range.timeClass === "time-day" ? "sun-symbol" : "moon-symbol",
+      );
+      symbolCell.colSpan = range.span;
+      symbolCell.textContent = range.symbol;
+      symbolRow.appendChild(symbolCell);
+    });
+  }
+
   segments.forEach((segment) => {
     const cell = document.createElement("th");
     cell.textContent = segment.label;
@@ -756,6 +963,7 @@ function buildForecast(data) {
 
   segments.forEach((segment, index) => {
     const dayName = getDayName(segment.date);
+    const dayLabel = `${dayName} ${segment.date.getDate()}`;
     if (dayName !== currentDayName) {
       if (currentDayCell) {
         currentDayCell.colSpan = daySpan;
@@ -763,10 +971,13 @@ function buildForecast(data) {
       currentDayName = dayName;
       daySpan = 1;
       currentDayCell = document.createElement("th");
-      currentDayCell.textContent = dayName;
+      currentDayCell.textContent = dayLabel;
       dayRow.appendChild(currentDayCell);
     } else {
       daySpan += 1;
+      if (currentDayCell) {
+        currentDayCell.textContent = dayLabel;
+      }
     }
     if (index === segments.length - 1 && currentDayCell) {
       currentDayCell.colSpan = daySpan;
@@ -824,105 +1035,165 @@ function buildForecast(data) {
   body24.append(conditionRow, dayRow, tempRow, windRow, gustRow);
   updateLookaheadSummary(segments);
 
-  // summary 25h-7d by day
+  // summary 25h-7d by day with morning/day/evening/night columns
   const dayStats = {}; // {day: stats}
   for (let i = 24; i < Math.min(times.length, 168); i++) {
     const d = new Date(times[i]);
     const dayKey = d.toLocaleDateString();
+    const bucketKey = formatBucket(d.getHours()).toLowerCase();
 
     const temp = temps[i];
     const gust = gusts[i];
-    const wind = windSpeeds[i];
     const code = codes[i];
     const dir = windDirs[i];
 
     if (!dayStats[dayKey]) {
       dayStats[dayKey] = {
         date: d,
-        day: dayKey,
-        minTemp: temp === undefined ? Infinity : temp,
-        maxTemp: temp === undefined ? -Infinity : temp,
-        maxGust: gust === undefined ? -Infinity : gust,
-        maxGustDir: dir,
-        maxWind: wind === undefined ? -Infinity : wind,
-        maxWindDir: dir,
-        bestCode: code,
+        periods: {
+          morning: {
+            minTemp: Infinity,
+            maxTemp: -Infinity,
+            maxGust: -Infinity,
+            bestCode: undefined,
+            bestSeverity: -Infinity,
+            maxGustDir: undefined,
+          },
+          daytime: {
+            minTemp: Infinity,
+            maxTemp: -Infinity,
+            maxGust: -Infinity,
+            bestCode: undefined,
+            bestSeverity: -Infinity,
+            maxGustDir: undefined,
+          },
+          evening: {
+            minTemp: Infinity,
+            maxTemp: -Infinity,
+            maxGust: -Infinity,
+            bestCode: undefined,
+            bestSeverity: -Infinity,
+            maxGustDir: undefined,
+          },
+          night: {
+            minTemp: Infinity,
+            maxTemp: -Infinity,
+            maxGust: -Infinity,
+            bestCode: undefined,
+            bestSeverity: -Infinity,
+            maxGustDir: undefined,
+          },
+        },
       };
     }
+
     const entry = dayStats[dayKey];
+    const period = entry.periods[bucketKey];
+    if (!period) continue;
 
     if (temp !== undefined) {
-      entry.maxTemp = Math.max(entry.maxTemp, temp);
-      entry.minTemp = Math.min(entry.minTemp, temp);
+      period.minTemp = Math.min(period.minTemp, temp);
+      period.maxTemp = Math.max(period.maxTemp, temp);
     }
-    if (gust !== undefined && gust > entry.maxGust) {
-      entry.maxGust = gust;
-      entry.maxGustDir = dir;
-    }
-    if (wind !== undefined && wind > entry.maxWind) {
-      entry.maxWind = wind;
-      entry.maxWindDir = dir;
+    if (gust !== undefined && gust > period.maxGust) {
+      period.maxGust = gust;
+      period.maxGustDir = dir;
     }
     if (code !== undefined) {
-      const existingSeverity = getWeatherSeverity(entry.bestCode);
-      const thisSeverity = getWeatherSeverity(code);
-      if (entry.bestCode === undefined || thisSeverity > existingSeverity) {
-        entry.bestCode = code;
+      const severity = getWeatherSeverity(code);
+      if (severity > period.bestSeverity) {
+        period.bestSeverity = severity;
+        period.bestCode = code;
       }
     }
   }
 
-  const summaryRows = Object.values(dayStats).sort((a, b) => {
-    const dateA = a.date;
-    const dateB = b.date;
-    return dateA - dateB;
-  });
+  const summaryRows = Object.values(dayStats).sort((a, b) => a.date - b.date);
+
+  const header = document.getElementById("forecastSummaryHeader");
+  if (header) {
+    header.innerHTML = "";
+    const topRow = document.createElement("tr");
+    const dayHeader = document.createElement("th");
+    dayHeader.textContent = "Day";
+    dayHeader.rowSpan = 2;
+    topRow.appendChild(dayHeader);
+
+    const groups = [
+      { label: "Conditions", span: 4 },
+      { label: "Temperature (min-max)", span: 4 },
+      { label: "Max Wind Gusts", span: 4 },
+    ];
+
+    groups.forEach((group) => {
+      const th = document.createElement("th");
+      th.colSpan = group.span;
+      th.textContent = group.label;
+      topRow.appendChild(th);
+    });
+
+    const subRow = document.createElement("tr");
+    ["Condition", "Temp", "Max Gust"].forEach(() => {
+      ["Morning", "Daytime", "Evening", "Night"].forEach((periodName) => {
+        const th = document.createElement("th");
+        th.textContent = periodName;
+        subRow.appendChild(th);
+      });
+    });
+
+    header.append(topRow, subRow);
+  }
 
   summaryRows.forEach((entry) => {
     const row = document.createElement("tr");
     const dayCell = document.createElement("td");
-    const condCell = document.createElement("td");
-    const tempCell = document.createElement("td");
-    const gustCell = document.createElement("td");
-    const windCell = document.createElement("td");
+    dayCell.textContent = `${getDayName(entry.date, "short")} ${entry.date.getDate()}`;
+    row.appendChild(dayCell);
 
-    dayCell.textContent = getDayName(entry.date, "short");
-    condCell.textContent = `${getWeatherIcon(entry.bestCode, true)} ${WMO_DESCRIPTIONS[entry.bestCode] || "—"}`;
-    tempCell.textContent =
-      entry.minTemp === Infinity || entry.maxTemp === -Infinity
-        ? "—"
-        : `${Math.round(entry.minTemp)}-${Math.round(entry.maxTemp)}°C`;
+    const buckets = ["morning", "daytime", "evening", "night"];
 
-    gustCell.textContent =
-      entry.maxGust === -Infinity
-        ? "—"
-        : `${Math.round(entry.maxGust)} km/h ${entry.maxGustDir !== undefined ? bearingArrow(entry.maxGustDir) + " " + degToCompass(entry.maxGustDir) : ""}`;
-    windCell.textContent =
-      entry.maxWind === -Infinity
-        ? "—"
-        : `${Math.round(entry.maxWind)} km/h ${entry.maxWindDir !== undefined ? bearingArrow(entry.maxWindDir) + " " + degToCompass(entry.maxWindDir) : ""}`;
+    // conditions first
+    buckets.forEach((bucket) => {
+      const period = entry.periods[bucket];
+      const condCell = document.createElement("td");
+      if (period && period.bestCode !== undefined) {
+        condCell.innerHTML = `${getWeatherIcon(period.bestCode, true)} ${WMO_DESCRIPTIONS[period.bestCode] || "—"}`;
+      } else {
+        condCell.textContent = "—";
+      }
+      row.appendChild(condCell);
+    });
 
-    // threshold for summary by worst values
-    tempCell.className = "";
-    gustCell.className = "";
-    if (entry.minTemp !== Infinity) {
-      if (entry.minTemp <= settings.minTempAlarm)
-        tempCell.classList.add("forecast-alarm-cold");
-      else if (entry.minTemp <= settings.minTempCaution)
-        tempCell.classList.add("forecast-caution-cold");
-      else if (entry.maxTemp >= settings.maxTempAlarm)
-        tempCell.classList.add("forecast-alarm");
-      else if (entry.maxTemp >= settings.maxTempCaution)
-        tempCell.classList.add("forecast-warning");
-    }
-    if (entry.maxGust !== -Infinity) {
-      if (entry.maxGust >= settings.maxWindGustAlarm)
-        gustCell.classList.add("forecast-alarm");
-      else if (entry.maxGust >= settings.maxWindGustCaution)
-        gustCell.classList.add("forecast-warning");
-    }
+    // temps next
+    buckets.forEach((bucket) => {
+      const period = entry.periods[bucket];
+      const tempCell = document.createElement("td");
+      if (period && period.minTemp !== Infinity && period.maxTemp !== -Infinity) {
+        tempCell.textContent = `${Math.round(period.minTemp)}-${Math.round(period.maxTemp)}°C`;
+        if (period.minTemp <= settings.minTempAlarm) tempCell.classList.add("forecast-alarm-cold");
+        else if (period.minTemp <= settings.minTempCaution) tempCell.classList.add("forecast-caution-cold");
+        else if (period.maxTemp >= settings.maxTempAlarm) tempCell.classList.add("forecast-alarm");
+        else if (period.maxTemp >= settings.maxTempCaution) tempCell.classList.add("forecast-warning");
+      } else {
+        tempCell.textContent = "—";
+      }
+      row.appendChild(tempCell);
+    });
 
-    row.append(dayCell, condCell, tempCell, gustCell, windCell);
+    // max gust next
+    buckets.forEach((bucket) => {
+      const period = entry.periods[bucket];
+      const gustCell = document.createElement("td");
+      if (period && period.maxGust !== -Infinity) {
+        gustCell.textContent = `${Math.round(period.maxGust)} km/h ${period.maxGustDir !== undefined ? bearingArrow(period.maxGustDir) + " " + degToCompass(period.maxGustDir) : ""}`;
+        if (period.maxGust >= settings.maxWindGustAlarm) gustCell.classList.add("forecast-alarm");
+        else if (period.maxGust >= settings.maxWindGustCaution) gustCell.classList.add("forecast-warning");
+      } else {
+        gustCell.textContent = "—";
+      }
+      row.appendChild(gustCell);
+    });
+
     rowsSummary.appendChild(row);
   });
 }
