@@ -1117,3 +1117,181 @@ footer .final-note {
   margin-top: 12px;
   overflow: hidden;
 }
+
+#settingsSection .settings-box {
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+#settingsSection .group-wind {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+#settingsSection .group-temp {
+  border: 1px solid rgba(97, 115, 145, 0.2);
+}
+
+.threshold-slider-rows {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.threshold-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-row-label {
+  min-width: 110px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.threshold-slider-row input[type="range"] {
+  flex: 1;
+  height: 6px;
+  border-radius: 30px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.threshold-slider-row input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.threshold-slider-row input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.threshold-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #0e1b2f;
+  margin-top: -8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.threshold-slider-row input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #0e1b2f;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Caution / max-caution = orange */
+.threshold-slider-row.caution-row input[type="range"]::-webkit-slider-thumb,
+.threshold-slider-row.max-caution-row
+  input[type="range"]::-webkit-slider-thumb {
+  background: rgba(255, 165, 0, 1);
+}
+.threshold-slider-row.caution-row input[type="range"]::-moz-range-thumb,
+.threshold-slider-row.max-caution-row input[type="range"]::-moz-range-thumb {
+  background: rgba(255, 165, 0, 1);
+}
+
+/* Alarm (heat) / max-alarm = red */
+.threshold-slider-row.alarm-row input[type="range"]::-webkit-slider-thumb,
+.threshold-slider-row.max-alarm-row input[type="range"]::-webkit-slider-thumb {
+  background: rgba(255, 0, 0, 1);
+}
+.threshold-slider-row.alarm-row input[type="range"]::-moz-range-thumb,
+.threshold-slider-row.max-alarm-row input[type="range"]::-moz-range-thumb {
+  background: rgba(255, 0, 0, 1);
+}
+
+/* Min caution (cold caution) = blue */
+.threshold-slider-row.min-caution-row
+  input[type="range"]::-webkit-slider-thumb {
+  background: rgba(0, 85, 255, 1);
+}
+.threshold-slider-row.min-caution-row input[type="range"]::-moz-range-thumb {
+  background: rgba(0, 85, 255, 1);
+}
+
+/* Min alarm (cold alarm) = dark blue */
+.threshold-slider-row.min-alarm-row input[type="range"]::-webkit-slider-thumb {
+  background: rgba(0, 51, 153, 1);
+}
+.threshold-slider-row.min-alarm-row input[type="range"]::-moz-range-thumb {
+  background: rgba(0, 51, 153, 1);
+}
+
+.gust-scale-input-wrapper label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.threshold-display-box {
+  min-width: 62px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #0e1b2f;
+  color: var(--fg);
+  text-align: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.solar-cell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.solar-icon {
+  margin-right: 4px;
+}
+
+.solar-text {
+  font-size: 0.85em;
+}
+
+#forecastTable24 td.solar-very-poor,
+#forecastTableSummary td.solar-very-poor {
+  background-color: rgba(120, 120, 120, 0.28);
+}
+
+#forecastTable24 td.solar-poor,
+#forecastTableSummary td.solar-poor {
+  background-color: rgba(120, 149, 194, 0.26);
+}
+
+#forecastTable24 td.solar-fair,
+#forecastTableSummary td.solar-fair {
+  background-color: rgba(255, 190, 92, 0.24);
+}
+
+#forecastTable24 td.solar-good,
+#forecastTableSummary td.solar-good {
+  background-color: rgba(255, 221, 90, 0.24);
+}
+
+#forecastTable24 td.solar-excellent,
+#forecastTableSummary td.solar-excellent {
+  background-color: rgba(255, 239, 120, 0.32);
+}
+
+#forecastTable24 td.solar-na,
+#forecastTableSummary td.solar-na {
+  color: #9bb6d6;
+}

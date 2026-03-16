@@ -195,7 +195,7 @@
           temperature. Caution triggers a warning zone and alarm triggers a
           critical zone in forecast coloring.
         </p>
-        <div class="settings-group group-wind">
+        <div class="settings-box group-wind">
           <div class="gust-scale-wrapper">
             <div class="gust-scale-caption">Wind gust thresholds</div>
             <div id="gustScaleBar" class="gust-scale-bar">
@@ -209,12 +209,11 @@
                 >
                   <label>
                     Caution
-                    <input
-                      id="maxWindGustCaution"
-                      type="number"
-                      min="0"
-                      value="30"
-                    />
+                    <output
+                      id="maxWindGustCautionDisplay"
+                      class="threshold-display-box"
+                      >30</output
+                    >
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
@@ -227,12 +226,11 @@
                 >
                   <label>
                     Alarm
-                    <input
-                      id="maxWindGustAlarm"
-                      type="number"
-                      min="0"
-                      value="50"
-                    />
+                    <output
+                      id="maxWindGustAlarmDisplay"
+                      class="threshold-display-box"
+                      >50</output
+                    >
                   </label>
                   <div class="gust-scale-arrow">▲</div>
                 </div>
@@ -247,15 +245,42 @@
                 class="gust-scale-marker alarm"
                 title="Alarm"
               ></div>
-              <div id="gustScaleZero" class="scale-zero-marker">0</div>
             </div>
             <div class="scale-ends">
               <span class="scale-min">0</span>
-              <span id="gustScaleZero" class="scale-zero hidden">0</span>
+              <span class="scale-zero hidden">0</span>
               <span class="scale-max">100</span>
+            </div>
+            <div class="threshold-slider-rows">
+              <div class="threshold-slider-row caution-row">
+                <span class="slider-row-label">Caution (km/h)</span>
+                <input
+                  id="maxWindGustCaution"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="30"
+                  aria-label="Wind gust caution threshold"
+                />
+              </div>
+              <div class="threshold-slider-row alarm-row">
+                <span class="slider-row-label">Alarm (km/h)</span>
+                <input
+                  id="maxWindGustAlarm"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="50"
+                  aria-label="Wind gust alarm threshold"
+                />
+              </div>
             </div>
             <div id="gustThresholdStatus" class="threshold-status bottom"></div>
           </div>
+        </div>
+        <div class="settings-box group-temp">
           <div class="gust-scale-wrapper">
             <div class="gust-scale-caption">Temperature thresholds</div>
             <div id="tempScaleBar" class="gust-scale-bar">
@@ -269,7 +294,11 @@
                 >
                   <label>
                     Min Caution
-                    <input id="minTempCaution" type="number" value="10" />
+                    <output
+                      id="minTempCautionDisplay"
+                      class="threshold-display-box"
+                      >10</output
+                    >
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
@@ -280,7 +309,11 @@
                 >
                   <label>
                     Max Caution
-                    <input id="maxTempCaution" type="number" value="30" />
+                    <output
+                      id="maxTempCautionDisplay"
+                      class="threshold-display-box"
+                      >30</output
+                    >
                   </label>
                   <div class="gust-scale-arrow">▼</div>
                 </div>
@@ -294,7 +327,11 @@
                 >
                   <label>
                     Min Alarm
-                    <input id="minTempAlarm" type="number" value="5" />
+                    <output
+                      id="minTempAlarmDisplay"
+                      class="threshold-display-box"
+                      >5</output
+                    >
                   </label>
                   <div class="gust-scale-arrow">▲</div>
                 </div>
@@ -305,7 +342,11 @@
                 >
                   <label>
                     Max Alarm
-                    <input id="maxTempAlarm" type="number" value="40" />
+                    <output
+                      id="maxTempAlarmDisplay"
+                      class="threshold-display-box"
+                      >40</output
+                    >
                   </label>
                   <div class="gust-scale-arrow">▲</div>
                 </div>
@@ -336,6 +377,56 @@
               <span class="scale-min">-20</span>
               <span id="tempScaleZero" class="scale-zero hidden">0</span>
               <span class="scale-max">50</span>
+            </div>
+            <div class="threshold-slider-rows">
+              <div class="threshold-slider-row min-alarm-row">
+                <span class="slider-row-label">Min Alarm (°C)</span>
+                <input
+                  id="minTempAlarm"
+                  type="range"
+                  min="-20"
+                  max="50"
+                  step="1"
+                  value="5"
+                  aria-label="Minimum temperature alarm threshold"
+                />
+              </div>
+              <div class="threshold-slider-row min-caution-row">
+                <span class="slider-row-label">Min Caution (°C)</span>
+                <input
+                  id="minTempCaution"
+                  type="range"
+                  min="-20"
+                  max="50"
+                  step="1"
+                  value="10"
+                  aria-label="Minimum temperature caution threshold"
+                />
+              </div>
+              <div class="threshold-slider-row max-caution-row">
+                <span class="slider-row-label">Max Caution (°C)</span>
+                <input
+                  id="maxTempCaution"
+                  type="range"
+                  min="-20"
+                  max="50"
+                  step="1"
+                  value="30"
+                  aria-label="Maximum temperature caution threshold"
+                />
+              </div>
+              <div class="threshold-slider-row max-alarm-row">
+                <span class="slider-row-label">Max Alarm (°C)</span>
+                <input
+                  id="maxTempAlarm"
+                  type="range"
+                  min="-20"
+                  max="50"
+                  step="1"
+                  value="40"
+                  aria-label="Maximum temperature alarm threshold"
+                />
+              </div>
             </div>
             <div id="tempThresholdStatus" class="threshold-status bottom"></div>
           </div>

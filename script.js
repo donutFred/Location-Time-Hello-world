@@ -366,6 +366,25 @@ function setInputValue(id, value) {
   }
 }
 
+function setDisplayValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = String(value);
+  }
+}
+
+function syncDisplayValues(currentSettings) {
+  setDisplayValue("maxWindGustAlarmDisplay", currentSettings.maxWindGustAlarm);
+  setDisplayValue(
+    "maxWindGustCautionDisplay",
+    currentSettings.maxWindGustCaution,
+  );
+  setDisplayValue("minTempAlarmDisplay", currentSettings.minTempAlarm);
+  setDisplayValue("minTempCautionDisplay", currentSettings.minTempCaution);
+  setDisplayValue("maxTempAlarmDisplay", currentSettings.maxTempAlarm);
+  setDisplayValue("maxTempCautionDisplay", currentSettings.maxTempCaution);
+}
+
 function getInputNumber(id, fallback) {
   const el = document.getElementById(id);
   if (!el) return fallback;
@@ -380,6 +399,7 @@ function applySettingsToUI(currentSettings = settings) {
   setInputValue("minTempCaution", currentSettings.minTempCaution);
   setInputValue("maxTempAlarm", currentSettings.maxTempAlarm);
   setInputValue("maxTempCaution", currentSettings.maxTempCaution);
+  syncDisplayValues(currentSettings);
 
   updateWindGustBar(currentSettings);
   updateTempScaleBar(currentSettings);
@@ -399,10 +419,6 @@ function readSettingsFromUI() {
     minTempCaution: getInputNumber("minTempCaution", settings.minTempCaution),
     maxTempAlarm: getInputNumber("maxTempAlarm", settings.maxTempAlarm),
     maxTempCaution: getInputNumber("maxTempCaution", settings.maxTempCaution),
-    minTempAlarm: Number(document.getElementById("minTempAlarm").value),
-    minTempCaution: Number(document.getElementById("minTempCaution").value),
-    maxTempAlarm: Number(document.getElementById("maxTempAlarm").value),
-    maxTempCaution: Number(document.getElementById("maxTempCaution").value),
   };
 
   // normalize relationships
@@ -473,10 +489,6 @@ function initSettingsListeners() {
 
     el.dataset.prevValue = el.value;
 
-    el.addEventListener("focus", () => {
-      el.dataset.prevValue = el.value;
-    });
-
     el.addEventListener("input", () => {
       const value = Number(el.value);
       if (Number.isNaN(value)) {
@@ -510,12 +522,19 @@ function initSettingsListeners() {
       const errors = validateThresholdValues(candidate);
       if (errors.length) {
         el.value = el.dataset.prevValue ?? el.value;
+        const reverted = readSettingsFromUI();
+        syncDisplayValues(reverted);
+        updateWindGustBar(reverted);
+        updateTempScaleBar(reverted);
         setThresholdMessage(errors[0]);
         return;
       }
 
       setThresholdMessage("", false);
       el.dataset.prevValue = el.value;
+      syncDisplayValues(candidate);
+      updateWindGustBar(candidate);
+      updateTempScaleBar(candidate);
     });
   });
 
@@ -852,6 +871,71 @@ function getWeatherIcon(code, isDay) {
   return icon;
 }
 
+const SOLAR_RATINGS = [
+  { label: "Very poor", icon: "🌧", className: "solar-very-poor" },
+  { label: "Poor", icon: "☁️", className: "solar-poor" },
+  { label: "Fair", icon: "⛅", className: "solar-fair" },
+  { label: "Good", icon: "🌤", className: "solar-good" },
+  { label: "Excellent", icon: "☀️", className: "solar-excellent" },
+];
+
+function isSolarEligibleTimeClass(timeClass) {
+  return timeClass !== "time-night";
+}
+
+function getSolarLevelFromCode(code) {
+  if (code === undefined || code === null) return null;
+  if (code === 0 || code === 1) return 4;
+  if (code === 2) return 3;
+  if (code === 3) return 2;
+  if (code === 45 || code === 48) return 1;
+  if (code >= 51 && code <= 99) return 0;
+  return 1;
+}
+
+function getSolarRating(code, timeClass, isDaily = false) {
+  if (!isDaily && !isSolarEligibleTimeClass(timeClass)) return null;
+  const level = getSolarLevelFromCode(code);
+  if (level === null) return null;
+
+  let adjustedLevel = level;
+  if (
+    !isDaily &&
+    (timeClass === "time-twilight-morning" ||
+      timeClass === "time-twilight-evening")
+  ) {
+    adjustedLevel = Math.max(0, adjustedLevel - 1);
+  }
+
+  return SOLAR_RATINGS[adjustedLevel];
+}
+
+// Radiation-based solar rating (W/m²); naturally accounts for sun angle and cloud cover
+function getSolarRatingFromRadiation(radiation, timeClass) {
+  if (!isSolarEligibleTimeClass(timeClass)) return null;
+  if (radiation === undefined || radiation === null) return null;
+  let level;
+  if (radiation < 50) level = 0;
+  else if (radiation < 200) level = 1;
+  else if (radiation < 400) level = 2;
+  else if (radiation < 650) level = 3;
+  else level = 4;
+  return { ...SOLAR_RATINGS[level], radiation: Math.round(radiation) };
+}
+
+// Daily solar: sum all hourly W/m² = total Wh/m² for the day
+function getDailySolarRating(totalWh) {
+  if (!totalWh || totalWh <= 0) return null;
+  let level;
+  if (totalWh < 500) level = 0;
+  else if (totalWh < 1500) level = 1;
+  else if (totalWh < 3000) level = 2;
+  else if (totalWh < 5000) level = 3;
+  else level = 4;
+  const kwh = (totalWh / 1000).toFixed(1);
+  return { ...SOLAR_RATINGS[level], displayValue: `${kwh} kWh/m²` };
+}
+
 function degToCompass(deg) {
   const dirs = [
     "N",
@@ -876,7 +960,8 @@ function degToCompass(deg) {
 
 function bearingArrow(deg) {
   if (deg === null || deg === undefined || Number.isNaN(deg)) return "—";
-  const d = ((deg % 360) + 360) % 360;
+  // Wind direction is the FROM direction; rotate 180° so arrow points WITH the wind
+  const d = (((deg + 180) % 360) + 360) % 360;
   if (d >= 337.5 || d < 22.5) return "↑";
   if (d >= 22.5 && d < 67.5) return "↗";
   if (d >= 67.5 && d < 112.5) return "→";
@@ -1322,6 +1407,7 @@ function buildForecast(data) {
   const gusts = data.windgusts_10m || [];
   const windDirs = data.winddirection_10m || [];
   const windSpeeds = data.wind_speed_10m || [];
+  const radiation = data.shortwave_radiation || [];
 
   // next full hour
   const now = new Date();
@@ -1351,6 +1437,7 @@ function buildForecast(data) {
     let windDir = undefined;
     let maxGust = -Infinity;
     let gustDir = undefined;
+    let maxRadiation = -Infinity;
     let bestCode = undefined;
     let bestSeverity = -Infinity;
     let bestWind = -Infinity;
@@ -1362,6 +1449,7 @@ function buildForecast(data) {
       const gust = gusts[idx];
       const code = codes[idx];
       const dir = windDirs[idx];
+      const rad = radiation[idx];
 
       if (temp !== undefined) {
         minTemp = Math.min(minTemp, temp);
@@ -1379,6 +1467,7 @@ function buildForecast(data) {
         maxGust = gust;
         gustDir = dir;
       }
+      if (rad !== undefined && rad > maxRadiation) maxRadiation = rad;
 
       const severity = code !== undefined ? getWeatherSeverity(code) : 0;
       const keyScale = Math.max(gust || 0, wind || 0);
@@ -1409,6 +1498,7 @@ function buildForecast(data) {
       windDir,
       maxGust: maxGust === -Infinity ? undefined : maxGust,
       gustDir,
+      maxRadiation: maxRadiation === -Infinity ? undefined : maxRadiation,
     });
   }
 
@@ -1477,6 +1567,7 @@ function buildForecast(data) {
   const tempRow = rowDef("Temp");
   const windRow = rowDef("Wind");
   const gustRow = rowDef("Max Gust");
+  const solarRow = rowDef("Solar");
 
   segments.forEach((segment) => {
     const condCell = document.createElement("td");
@@ -1523,9 +1614,23 @@ function buildForecast(data) {
         gustCell.classList.add("forecast-warning");
     }
     gustRow.appendChild(gustCell);
+
+    const solarCell = document.createElement("td");
+    const solarRating = getSolarRatingFromRadiation(
+      segment.maxRadiation,
+      segment.timeClass,
+    );
+    if (solarRating) {
+      solarCell.innerHTML = `<span class="solar-icon">${solarRating.icon}</span> <span class="solar-text">${solarRating.label}</span> <span class="solar-value">${solarRating.radiation} W/m²</span>`;
+      solarCell.classList.add("solar-cell", solarRating.className);
+    } else {
+      solarCell.textContent = "—";
+      solarCell.classList.add("solar-cell", "solar-na");
+    }
+    solarRow.appendChild(solarCell);
   });
 
-  body24.append(conditionRow, dayRow, tempRow, windRow, gustRow);
+  body24.append(conditionRow, dayRow, tempRow, windRow, gustRow, solarRow);
   updateLookaheadSummary(segments);
 
   // summary 25h-7d by day with morning/day/evening/night columns
@@ -1539,10 +1644,12 @@ function buildForecast(data) {
     const gust = gusts[i];
     const code = codes[i];
     const dir = windDirs[i];
+    const rad = radiation[i];
 
     if (!dayStats[dayKey]) {
       dayStats[dayKey] = {
         date: d,
+        totalRadiation: 0,
         periods: {
           morning: {
             minTemp: Infinity,
@@ -1551,6 +1658,7 @@ function buildForecast(data) {
             bestCode: undefined,
             bestSeverity: -Infinity,
             maxGustDir: undefined,
+            maxRadiation: -Infinity,
           },
           daytime: {
             minTemp: Infinity,
@@ -1559,6 +1667,7 @@ function buildForecast(data) {
             bestCode: undefined,
             bestSeverity: -Infinity,
             maxGustDir: undefined,
+            maxRadiation: -Infinity,
           },
           evening: {
             minTemp: Infinity,
@@ -1567,6 +1676,7 @@ function buildForecast(data) {
             bestCode: undefined,
             bestSeverity: -Infinity,
             maxGustDir: undefined,
+            maxRadiation: -Infinity,
           },
           night: {
             minTemp: Infinity,
@@ -1575,12 +1685,14 @@ function buildForecast(data) {
             bestCode: undefined,
             bestSeverity: -Infinity,
             maxGustDir: undefined,
+            maxRadiation: -Infinity,
           },
         },
       };
     }
 
     const entry = dayStats[dayKey];
+    if (rad !== undefined && rad >= 0) entry.totalRadiation += rad;
     const period = entry.periods[bucketKey];
     if (!period) continue;
 
@@ -1599,6 +1711,9 @@ function buildForecast(data) {
         period.bestCode = code;
       }
     }
+    if (rad !== undefined && rad > period.maxRadiation) {
+      period.maxRadiation = rad;
+    }
   }
 
   const summaryRows = Object.values(dayStats).sort((a, b) => a.date - b.date);
@@ -1616,6 +1731,7 @@ function buildForecast(data) {
       { label: "Conditions", span: 4 },
       { label: "Temperature (min-max)", span: 4 },
       { label: "Max Wind Gusts", span: 4 },
+      { label: "Solar Generation", span: 1 },
     ];
 
     groups.forEach((group) => {
@@ -1633,6 +1749,9 @@ function buildForecast(data) {
         subRow.appendChild(th);
       });
     });
+    const solarTh = document.createElement("th");
+    solarTh.textContent = "Daily";
+    subRow.appendChild(solarTh);
 
     header.append(topRow, subRow);
   }
@@ -1700,6 +1819,17 @@ function buildForecast(data) {
       row.appendChild(gustCell);
     });
 
+    const solarCell = document.createElement("td");
+    const dailySolarRating = getDailySolarRating(entry.totalRadiation);
+    if (dailySolarRating) {
+      solarCell.innerHTML = `<span class="solar-icon">${dailySolarRating.icon}</span> <span class="solar-text">${dailySolarRating.label}</span> <span class="solar-value">${dailySolarRating.displayValue}</span>`;
+      solarCell.classList.add("solar-cell", dailySolarRating.className);
+    } else {
+      solarCell.textContent = "—";
+      solarCell.classList.add("solar-cell", "solar-na");
+    }
+    row.appendChild(solarCell);
+
     rowsSummary.appendChild(row);
   });
 }
@@ -1712,7 +1842,7 @@ async function fetchWeather(lat, lon) {
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current_weather=true` +
-      `&hourly=temperature_2m,weathercode,winddirection_10m,wind_speed_10m,windgusts_10m,relativehumidity_2m` +
+      `&hourly=temperature_2m,weathercode,winddirection_10m,wind_speed_10m,windgusts_10m,relativehumidity_2m,shortwave_radiation` +
       `&forecast_days=7` +
       `&timezone=auto`;
 
@@ -1769,6 +1899,7 @@ async function fetchWeather(lat, lon) {
       windgusts_10m: hourly.windgusts_10m || [],
       winddirection_10m: hourly.winddirection_10m || [],
       wind_speed_10m: hourly.wind_speed_10m || [],
+      shortwave_radiation: hourly.shortwave_radiation || [],
     };
 
     const hasForecast =
