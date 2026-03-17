@@ -588,6 +588,59 @@ function initSettingsListeners() {
   }
 }
 
+function initDragHandles() {
+  const handleConfig = [
+    { wrapperId: "cautionInputWrapper", inputId: "maxWindGustCaution" },
+    { wrapperId: "alarmInputWrapper", inputId: "maxWindGustAlarm" },
+    { wrapperId: "minTempCautionInputWrapper", inputId: "minTempCaution" },
+    { wrapperId: "maxTempCautionInputWrapper", inputId: "maxTempCaution" },
+    { wrapperId: "minTempAlarmInputWrapper", inputId: "minTempAlarm" },
+    { wrapperId: "maxTempAlarmInputWrapper", inputId: "maxTempAlarm" },
+  ];
+
+  handleConfig.forEach(({ wrapperId, inputId }) => {
+    const wrapper = document.getElementById(wrapperId);
+    const input = document.getElementById(inputId);
+    const bar = wrapper?.closest(".gust-scale-bar");
+    if (!wrapper || !input || !bar) return;
+
+    const min = Number(input.min ?? 0);
+    const max = Number(input.max ?? min + 100);
+
+    const update = (clientX) => {
+      if (typeof clientX !== "number") return;
+      const rect = bar.getBoundingClientRect();
+      if (!rect.width) return;
+      const ratio = Math.min(
+        1,
+        Math.max(0, (clientX - rect.left) / rect.width),
+      );
+      const value = Math.round(min + ratio * (max - min));
+      if (Number(input.value) === value) return;
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+
+    const onPointerDown = (event) => {
+      event.preventDefault();
+      wrapper.setPointerCapture?.(event.pointerId);
+      update(event.clientX);
+      const onMove = (moveEvent) => update(moveEvent.clientX);
+      const onEnd = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onEnd);
+        document.removeEventListener("pointercancel", onEnd);
+        wrapper.releasePointerCapture?.(event.pointerId);
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onEnd);
+      document.addEventListener("pointercancel", onEnd);
+    };
+
+    wrapper.addEventListener("pointerdown", onPointerDown);
+  });
+}
+
 function initMapIfNeeded(lat, lon, zoom = 8) {
   if (!map) {
     map = L.map("map").setView([lat, lon], zoom);
@@ -651,6 +704,7 @@ function showPosition(pos) {
 // initialize settings UI + events
 applySettingsToUI();
 initSettingsListeners();
+initDragHandles();
 
 // release date (adjust as needed)
 const RELEASE_DATE = "2026-03-15";
@@ -836,8 +890,8 @@ const WMO_ICONS = {
   1: "🌤",
   2: "⛅",
   3: "☁️",
-  45: "🌫",
-  48: "🌫",
+  45: "🌁",
+  48: "🌁",
   51: "🌦",
   53: "🌦",
   55: "🌧",
@@ -1532,46 +1586,40 @@ function buildForecast(data) {
   };
 
   const dayRow = document.createElement("tr");
+  dayRow.classList.add("day-row");
   const dayLabelCell = document.createElement("th");
   dayLabelCell.textContent = "Day";
   dayRow.appendChild(dayLabelCell);
 
-  let currentDayName = null;
-  let currentDayCell = null;
-  let daySpan = 0;
-
-  segments.forEach((segment, index) => {
+  let lastDayName = null;
+  segments.forEach((segment) => {
+    const cell = document.createElement("th");
+    cell.classList.add(segment.timeClass);
     const dayName = getDayName(segment.date);
-    const dayLabel = `${dayName} ${segment.date.getDate()}`;
-    if (dayName !== currentDayName) {
-      if (currentDayCell) {
-        currentDayCell.colSpan = daySpan;
-      }
-      currentDayName = dayName;
-      daySpan = 1;
-      currentDayCell = document.createElement("th");
-      currentDayCell.textContent = dayLabel;
-      dayRow.appendChild(currentDayCell);
+    if (dayName !== lastDayName) {
+      cell.textContent = `${dayName} ${segment.date.getDate()}`;
+      lastDayName = dayName;
     } else {
-      daySpan += 1;
-      if (currentDayCell) {
-        currentDayCell.textContent = dayLabel;
-      }
+      cell.textContent = "\u00A0";
     }
-    if (index === segments.length - 1 && currentDayCell) {
-      currentDayCell.colSpan = daySpan;
-    }
+    dayRow.appendChild(cell);
   });
 
   const conditionRow = rowDef("Condition");
-  const tempRow = rowDef("Temp");
-  const windRow = rowDef("Wind");
-  const gustRow = rowDef("Max Gust");
-  const solarRow = rowDef("Solar");
+  const tempRow = rowDef("Temperature (°C)");
+  const windSpeedRow = rowDef("Wind (km/h)");
+  const windDirectionRow = rowDef("Wind direction");
+  const gustSpeedRow = rowDef("Max gust (km/h)");
+  const solarRow = rowDef("Solar (W/m²)");
 
   segments.forEach((segment) => {
     const condCell = document.createElement("td");
-    condCell.innerHTML = `<span class="condition-icon">${getWeatherIcon(segment.code, true)}</span> <span class="condition-text">${WMO_DESCRIPTIONS[segment.code] || "—"}</span>`;
+    const description = WMO_DESCRIPTIONS[segment.code] || "—";
+    condCell.setAttribute("title", description);
+    condCell.innerHTML = `<span class="condition-icon" aria-label="${description}">${getWeatherIcon(
+      segment.code,
+      true,
+    )}</span>`;
     conditionRow.appendChild(condCell);
 
     const tempCell = document.createElement("td");
@@ -1580,8 +1628,8 @@ function buildForecast(data) {
       const maxTempValue = Math.round(segment.maxTemp);
       tempCell.textContent =
         minTempValue === maxTempValue
-          ? `${minTempValue}°C`
-          : `${minTempValue}-${maxTempValue}°C`;
+          ? `${minTempValue}`
+          : `${minTempValue}-${maxTempValue}`;
       if (segment.minTemp <= settings.minTempAlarm)
         tempCell.classList.add("forecast-alarm-cold");
       else if (segment.minTemp <= settings.minTempCaution)
@@ -1595,25 +1643,25 @@ function buildForecast(data) {
     }
     tempRow.appendChild(tempCell);
 
-    const windCell = document.createElement("td");
-    windCell.innerHTML =
-      segment.maxWind !== undefined
-        ? `<span class="digits">${Math.round(segment.maxWind)}</span><span class="unit"> km/h </span><span class="unit">${segment.windDir !== undefined ? bearingArrow(segment.windDir) + " " + degToCompass(segment.windDir) : ""}</span>`
-        : "—";
-    windRow.appendChild(windCell);
-
     const gustCell = document.createElement("td");
-    gustCell.innerHTML =
-      segment.maxGust !== undefined
-        ? `<span class="digits">${Math.round(segment.maxGust)}</span><span class="unit"> km/h </span><span class="unit">${segment.gustDir !== undefined ? bearingArrow(segment.gustDir) + " " + degToCompass(segment.gustDir) : ""}</span>`
-        : "—";
     if (segment.maxGust !== undefined) {
+      gustCell.textContent = String(Math.round(segment.maxGust));
       if (segment.maxGust >= settings.maxWindGustAlarm)
         gustCell.classList.add("forecast-alarm");
       else if (segment.maxGust >= settings.maxWindGustCaution)
         gustCell.classList.add("forecast-warning");
+    } else {
+      gustCell.textContent = "—";
     }
-    gustRow.appendChild(gustCell);
+    gustSpeedRow.appendChild(gustCell);
+
+    const windDirCell = document.createElement("td");
+    if (segment.windDir !== undefined) {
+      windDirCell.textContent = `${bearingArrow(segment.windDir)} ${degToCompass(segment.windDir)}`;
+    } else {
+      windDirCell.textContent = "—";
+    }
+    windDirectionRow.appendChild(windDirCell);
 
     const solarCell = document.createElement("td");
     const solarRating = getSolarRatingFromRadiation(
@@ -1621,7 +1669,7 @@ function buildForecast(data) {
       segment.timeClass,
     );
     if (solarRating) {
-      solarCell.innerHTML = `<span class="solar-icon">${solarRating.icon}</span> <span class="solar-text">${solarRating.label}</span> <span class="solar-value">${solarRating.radiation} W/m²</span>`;
+      solarCell.innerHTML = `<span class="solar-label">${solarRating.label}</span><span class="solar-value">${solarRating.radiation} W/m²</span>`;
       solarCell.classList.add("solar-cell", solarRating.className);
     } else {
       solarCell.textContent = "—";
@@ -1630,7 +1678,15 @@ function buildForecast(data) {
     solarRow.appendChild(solarCell);
   });
 
-  body24.append(conditionRow, dayRow, tempRow, windRow, gustRow, solarRow);
+  body24.append(
+    dayRow,
+    conditionRow,
+    tempRow,
+    windSpeedRow,
+    windDirectionRow,
+    gustSpeedRow,
+    solarRow,
+  );
   updateLookaheadSummary(segments);
 
   // summary 25h-7d by day with morning/day/evening/night columns
@@ -1756,30 +1812,44 @@ function buildForecast(data) {
     header.append(topRow, subRow);
   }
 
+  const summaryBuckets = ["morning", "daytime", "evening", "night"];
+
+  if (!rowsSummary) return;
+  if (!summaryRows.length) {
+    const placeholder = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 13;
+    cell.textContent = "Forecast summary unavailable.";
+    placeholder.appendChild(cell);
+    rowsSummary.appendChild(placeholder);
+    return;
+  }
+
   summaryRows.forEach((entry) => {
     const row = document.createElement("tr");
     const dayCell = document.createElement("td");
     dayCell.textContent = `${getDayName(entry.date, "short")} ${entry.date.getDate()}`;
     row.appendChild(dayCell);
 
-    const buckets = ["morning", "daytime", "evening", "night"];
-
-    // conditions first
-    buckets.forEach((bucket) => {
+    summaryBuckets.forEach((bucket) => {
+      const cell = document.createElement("td");
       const period = entry.periods[bucket];
-      const condCell = document.createElement("td");
       if (period && period.bestCode !== undefined) {
-        condCell.innerHTML = `${getWeatherIcon(period.bestCode, true)} ${WMO_DESCRIPTIONS[period.bestCode] || "—"}`;
+        const title = WMO_DESCRIPTIONS[period.bestCode] || "—";
+        cell.setAttribute("title", title);
+        cell.innerHTML = `<span class="condition-icon" aria-label="${title}">${getWeatherIcon(
+          period.bestCode,
+          true,
+        )}</span>`;
       } else {
-        condCell.textContent = "—";
+        cell.textContent = "—";
       }
-      row.appendChild(condCell);
+      row.appendChild(cell);
     });
 
-    // temps next
-    buckets.forEach((bucket) => {
+    summaryBuckets.forEach((bucket) => {
+      const cell = document.createElement("td");
       const period = entry.periods[bucket];
-      const tempCell = document.createElement("td");
       if (
         period &&
         period.minTemp !== Infinity &&
@@ -1787,42 +1857,45 @@ function buildForecast(data) {
       ) {
         const minT = Math.round(period.minTemp);
         const maxT = Math.round(period.maxTemp);
-        tempCell.textContent =
-          minT === maxT ? `${minT}°C` : `${minT}-${maxT}°C`;
+        cell.textContent = minT === maxT ? `${minT}` : `${minT}-${maxT}`;
         if (period.minTemp <= settings.minTempAlarm)
-          tempCell.classList.add("forecast-alarm-cold");
+          cell.classList.add("forecast-alarm-cold");
         else if (period.minTemp <= settings.minTempCaution)
-          tempCell.classList.add("forecast-caution-cold");
+          cell.classList.add("forecast-caution-cold");
         else if (period.maxTemp >= settings.maxTempAlarm)
-          tempCell.classList.add("forecast-alarm");
+          cell.classList.add("forecast-alarm");
         else if (period.maxTemp >= settings.maxTempCaution)
-          tempCell.classList.add("forecast-warning");
+          cell.classList.add("forecast-warning");
       } else {
-        tempCell.textContent = "—";
+        cell.textContent = "—";
       }
-      row.appendChild(tempCell);
+      row.appendChild(cell);
     });
 
-    // max gust next
-    buckets.forEach((bucket) => {
+    summaryBuckets.forEach((bucket) => {
+      const cell = document.createElement("td");
       const period = entry.periods[bucket];
-      const gustCell = document.createElement("td");
       if (period && period.maxGust !== -Infinity) {
-        gustCell.textContent = `${Math.round(period.maxGust)} km/h ${period.maxGustDir !== undefined ? bearingArrow(period.maxGustDir) + " " + degToCompass(period.maxGustDir) : ""}`;
+        const speed = Math.round(period.maxGust);
+        const dirText =
+          period.maxGustDir !== undefined
+            ? `${bearingArrow(period.maxGustDir)} ${degToCompass(period.maxGustDir)}`
+            : "—";
+        cell.innerHTML = `<span class="wind-speed-line">${speed} km/h</span><span class="wind-direction-line">${dirText}</span>`;
         if (period.maxGust >= settings.maxWindGustAlarm)
-          gustCell.classList.add("forecast-alarm");
+          cell.classList.add("forecast-alarm");
         else if (period.maxGust >= settings.maxWindGustCaution)
-          gustCell.classList.add("forecast-warning");
+          cell.classList.add("forecast-warning");
       } else {
-        gustCell.textContent = "—";
+        cell.textContent = "—";
       }
-      row.appendChild(gustCell);
+      row.appendChild(cell);
     });
 
     const solarCell = document.createElement("td");
     const dailySolarRating = getDailySolarRating(entry.totalRadiation);
     if (dailySolarRating) {
-      solarCell.innerHTML = `<span class="solar-icon">${dailySolarRating.icon}</span> <span class="solar-text">${dailySolarRating.label}</span> <span class="solar-value">${dailySolarRating.displayValue}</span>`;
+      solarCell.innerHTML = `<span class="solar-label">${dailySolarRating.label}</span><span class="solar-value">${dailySolarRating.displayValue}</span>`;
       solarCell.classList.add("solar-cell", dailySolarRating.className);
     } else {
       solarCell.textContent = "—";
@@ -1853,19 +1926,14 @@ async function fetchWeather(lat, lon) {
     const c = data.current_weather;
     if (!c) throw new Error("No current weather in response");
 
-    const todayHumidity = data.hourly?.relativehumidity_2m?.[0];
+    const hourly = data.hourly || {};
+    const todayHumidity = hourly.relativehumidity_2m?.[0];
     const todayTemp = c.temperature;
     const todayWindSpeed = c.windspeed;
     const todayWindDir = c.winddirection;
 
     const desc = WMO_DESCRIPTIONS[c.weathercode] ?? `Code ${c.weathercode}`;
-    const windDirText =
-      typeof todayWindDir === "number"
-        ? `${degToCompass(todayWindDir)} (${Math.round(todayWindDir)}°)`
-        : "—";
-
     const readableDesc = desc;
-    setTextById("wxDesc", readableDesc);
     setTextById("wxIcon", getWeatherIcon(c.weathercode, true));
     setTextById("wxIconLabel", readableDesc);
     setTextById(
@@ -1886,10 +1954,20 @@ async function fetchWeather(lat, lon) {
       "wxHum",
       todayHumidity !== undefined ? `${Math.round(todayHumidity)}%` : "—",
     );
+    const radiationIndex = (hourly.time || []).findIndex((t) => t === c.time);
+    const currentSolar =
+      radiationIndex >= 0
+        ? hourly.shortwave_radiation?.[radiationIndex]
+        : undefined;
+    setTextById(
+      "wxSolar",
+      currentSolar !== undefined && currentSolar !== null
+        ? `${Math.round(currentSolar)} W/m²`
+        : "—",
+    );
     setTextById("updatedInfo", `Updated: ${c.time}`);
 
     // Forecast table (hourly + 6h steps) from hourly payload
-    const hourly = data.hourly || {};
 
     // Cache forecast data for settings changes
     window.cachedForecast = {
