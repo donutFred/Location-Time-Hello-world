@@ -13,7 +13,7 @@
     />
 
     <!-- Your stylesheet -->
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=2026-04-16-2" />
 
     <!-- Leaflet CSS (from official quick-start) -->
     <link
@@ -122,14 +122,19 @@
           </div>
         </div>
 
+        <div id="wxAlertsWideWrap" class="wx-alerts-wide hidden">
+          <div id="wxAlertsBanner" class="wx-alerts-banner">
+            <span class="wx-alert-icon" aria-hidden="true">⚠</span>
+            <strong>Alerts</strong>
+            <span id="wxAlerts">—</span>
+          </div>
+        </div>
+
         <div class="pane weather-pane">
           <div id="weatherStatus" class="status">
             Waiting for your location…
           </div>
           <div id="weatherData" class="data hidden">
-            <div class="wx-alerts-banner">
-              <strong>Alerts:</strong> <span id="wxAlerts">—</span>
-            </div>
             <div class="today-solar-forecast">
               <strong>Today's solar generation forecast:</strong>
               <span id="wxTodaySolarForecast" class="today-solar-forecast-value"
@@ -162,6 +167,33 @@
 
       <section class="card full-width">
         <h2 id="forecast24Heading">Forecast: Next 24 hours</h2>
+        <div id="next24Overview" class="next24-overview" aria-live="polite">
+          <div class="next24-box" id="next24TempBox">
+            <div class="next24-label">Temp</div>
+            <div class="next24-value-wrap">
+              <div id="next24TempStatus" class="next24-pill next24-ok">OK</div>
+              <div id="next24TempDetail" class="next24-detail">&nbsp;</div>
+            </div>
+          </div>
+          <div class="next24-box" id="next24WindBox">
+            <div class="next24-label">Wind</div>
+            <div class="next24-value-wrap">
+              <div id="next24WindStatus" class="next24-pill next24-ok">OK</div>
+              <div id="next24WindDetail" class="next24-detail">&nbsp;</div>
+            </div>
+          </div>
+          <div class="next24-box" id="next24RainBox">
+            <div class="next24-label">Rain</div>
+            <div class="next24-value-wrap">
+              <div id="next24RainStatus" class="next24-pill next24-ok">No rain</div>
+              <div id="next24RainDetail" class="next24-detail">&nbsp;</div>
+            </div>
+          </div>
+          <div class="next24-box" id="next24SolarBox">
+            <div class="next24-label">Solar</div>
+            <div id="next24SolarStatus" class="next24-solar-value">—</div>
+          </div>
+        </div>
         <div class="hourly-chart-wrap">
           <canvas
             id="hourlyForecastChart"
@@ -362,6 +394,21 @@
                 this may result in you being advised to bring down the awning in
                 advance of predicted high winds.
               </p>
+              <label class="setting-inline-label" for="awningNotifyHoursBeforeDark">
+                How long before dark do you want to be advised to bring in awning (hours)
+              </label>
+              <input
+                id="awningNotifyHoursBeforeDark"
+                type="number"
+                min="0"
+                max="12"
+                step="0.5"
+                value="2"
+                aria-label="How long before dark to advise bringing in awning"
+              />
+              <p class="setting-explanation" id="awningNotifyHoursHelp">
+                Consider how long it takes you to pull down the awning and whether you want to be inside the van having a beer/wine long before dark.
+              </p>
             </div>
           </div>
         </div>
@@ -404,6 +451,6 @@
     ></script>
 
     <!-- Your script (defer so DOM is parsed first) -->
-    <script src="script.js" defer></script>
+    <script src="script.js?v=2026-04-16-2" defer></script>
   </body>
 </html>

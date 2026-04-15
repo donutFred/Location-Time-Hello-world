@@ -49,6 +49,14 @@ function setManualLocationVisible(visible) {
   el.classList.toggle("hidden", !visible);
 }
 
+function setManualLocationButtonLabel(hasResolvedLocation) {
+  const button = document.getElementById("manualLocationApply");
+  if (!button) return;
+  button.textContent = hasResolvedLocation
+    ? "Choose different location"
+    : "Use manual location";
+}
+
 function setManualLocationMessage(message = "", isError = false) {
   const el = document.getElementById("manualLocationMessage");
   if (!el) return;
@@ -78,7 +86,6 @@ async function geocodePlaceName(query) {
 function applyManualLocation(lat, lon, locationLabel) {
   locStatus.textContent = "Location set manually.";
   setManualLocationMessage("", false);
-  setManualLocationVisible(false);
   setPageSectionsVisible(true);
 
   const fakePosition = {
@@ -149,6 +156,7 @@ const DEFAULT_SETTINGS = {
   maxTempAlarm: 40,
   maxTempCaution: 30,
   awningDaylightOnly: true,
+  awningNotifyHoursBeforeDark: 2,
 };
 let settings = loadSettings();
 
@@ -414,6 +422,23 @@ function applySettingsToUI(currentSettings = settings) {
       lbl.style.color = awningDaylightEl.checked ? "#90ee90" : "#ff9090";
     }
   }
+
+  const awningNotifyHoursEl = document.getElementById(
+    "awningNotifyHoursBeforeDark",
+  );
+  const awningNotifyHelpEl = document.getElementById("awningNotifyHoursHelp");
+  if (awningNotifyHoursEl) {
+    awningNotifyHoursEl.value = Number(
+      currentSettings.awningNotifyHoursBeforeDark ?? 2,
+    );
+    const disableLeadTime = awningDaylightEl
+      ? !awningDaylightEl.checked
+      : false;
+    awningNotifyHoursEl.disabled = disableLeadTime;
+    if (awningNotifyHelpEl) {
+      awningNotifyHelpEl.classList.toggle("disabled", disableLeadTime);
+    }
+  }
 }
 
 function readSettingsFromUI() {
@@ -433,7 +458,16 @@ function readSettingsFromUI() {
     awningDaylightOnly:
       document.getElementById("awningDaylightOnly")?.checked ??
       settings.awningDaylightOnly,
+    awningNotifyHoursBeforeDark: getInputNumber(
+      "awningNotifyHoursBeforeDark",
+      settings.awningNotifyHoursBeforeDark ?? 2,
+    ),
   };
+
+  loaded.awningNotifyHoursBeforeDark = Math.max(
+    0,
+    Math.min(12, loaded.awningNotifyHoursBeforeDark),
+  );
 
   // normalize relationships
   if (loaded.maxWindGustAlarm <= loaded.maxWindGustCaution) {
@@ -572,7 +606,7 @@ function initSettingsListeners() {
       applySettingsToUI();
       setThresholdMessage("", false);
       if (window.cachedForecast && window.cachedForecast.time?.length) {
-        buildForecast(window.cachedForecast);
+        buildForecast(window.cachedForecast, window.cachedCurrentConditions);
       }
       showStatus("Settings saved.");
     });
@@ -588,7 +622,7 @@ function initSettingsListeners() {
       saveSettings();
       applySettingsToUI();
       if (window.cachedForecast && window.cachedForecast.time?.length) {
-        buildForecast(window.cachedForecast);
+        buildForecast(window.cachedForecast, window.cachedCurrentConditions);
       }
       showStatus("Defaults restored.");
     });
@@ -597,12 +631,22 @@ function initSettingsListeners() {
   // Live YES/NO label update for daylight-only toggle
   const daylightToggle = document.getElementById("awningDaylightOnly");
   const daylightLabel = document.getElementById("awningDaylightOnlyLabel");
+  const awningNotifyHoursEl = document.getElementById(
+    "awningNotifyHoursBeforeDark",
+  );
+  const awningNotifyHelpEl = document.getElementById("awningNotifyHoursHelp");
   if (daylightToggle && daylightLabel) {
     daylightToggle.addEventListener("change", () => {
       daylightLabel.textContent = daylightToggle.checked ? "YES" : "NO";
       daylightLabel.style.color = daylightToggle.checked
         ? "#90ee90"
         : "#ff9090";
+      if (awningNotifyHoursEl) {
+        awningNotifyHoursEl.disabled = !daylightToggle.checked;
+      }
+      if (awningNotifyHelpEl) {
+        awningNotifyHelpEl.classList.toggle("disabled", !daylightToggle.checked);
+      }
     });
   }
 }
@@ -676,6 +720,8 @@ function initMapIfNeeded(lat, lon, zoom = 4) {
 function showPosition(pos) {
   clearLocationWaitTimer();
   setPageSectionsVisible(true);
+  setManualLocationVisible(true);
+  setManualLocationButtonLabel(true);
   const retryButton = document.getElementById("retryLocationButton");
   if (retryButton) retryButton.style.display = "none";
 
@@ -731,7 +777,7 @@ initSettingsListeners();
 function renderDefaultSettingsText() {
   const el = document.getElementById("defaultSettingsDisplay");
   if (!el) return;
-  el.textContent = `Default thresholds: wind caution ${DEFAULT_SETTINGS.maxWindGustCaution} km/h, wind alarm ${DEFAULT_SETTINGS.maxWindGustAlarm} km/h, min temp alarm ${DEFAULT_SETTINGS.minTempAlarm}°C, min temp caution ${DEFAULT_SETTINGS.minTempCaution}°C, max temp caution ${DEFAULT_SETTINGS.maxTempCaution}°C, max temp alarm ${DEFAULT_SETTINGS.maxTempAlarm}°C.`;
+  el.textContent = `Default thresholds: wind caution ${DEFAULT_SETTINGS.maxWindGustCaution} km/h, wind alarm ${DEFAULT_SETTINGS.maxWindGustAlarm} km/h, min temp alarm ${DEFAULT_SETTINGS.minTempAlarm}°C, min temp caution ${DEFAULT_SETTINGS.minTempCaution}°C, max temp caution ${DEFAULT_SETTINGS.maxTempCaution}°C, max temp alarm ${DEFAULT_SETTINGS.maxTempAlarm}°C, awning notice ${DEFAULT_SETTINGS.awningNotifyHoursBeforeDark}h before dark.`;
 }
 renderDefaultSettingsText();
 
@@ -775,6 +821,8 @@ updateLatestReleaseDate();
 
 function showError(err) {
   clearLocationWaitTimer();
+  const alertsWideWrap = document.getElementById("wxAlertsWideWrap");
+  alertsWideWrap?.classList.add("hidden");
   locData.classList.add("hidden");
   locErr.classList.remove("hidden");
   wxData.classList.add("hidden");
@@ -817,6 +865,7 @@ function showError(err) {
   }
 
   setManualLocationVisible(true);
+  setManualLocationButtonLabel(false);
   setManualLocationMessage(
     "Auto location failed. Enter latitude/longitude or suburb/city below.",
     false,
@@ -829,6 +878,7 @@ setPageSectionsVisible(false);
 // Request location when the page loads (HTTPS required on most browsers)
 if ("geolocation" in navigator) {
   locStatus.textContent = "Waiting for your location...";
+  setManualLocationButtonLabel(false);
   startLocationWaitTimer();
   navigator.geolocation.getCurrentPosition(showPosition, showError, {
     enableHighAccuracy: true,
@@ -1524,7 +1574,20 @@ function getWeatherSeverity(code) {
   return 9;
 }
 
-function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
+function getRainAlertLevel(code) {
+  if (code === undefined || code === null) return 0;
+  if (code === 65 || code === 67 || code === 82 || code >= 95) return 2;
+  if ((code >= 51 && code <= 63) || code === 66 || code === 80 || code === 81)
+    return 1;
+  return 0;
+}
+
+function updateLookaheadSummary(
+  segments,
+  hourlyPoints = [],
+  summaryRows = [],
+  currentConditions = null,
+) {
   const container = document.getElementById("lookaheadSummary");
   if (!container) return;
 
@@ -1543,13 +1606,21 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
   const isSummarySolarEligibleTimeClass = (timeClass) =>
     timeClass === "time-day";
 
+  const formatSummaryHour = (date) => {
+    const asDate = date instanceof Date ? date : new Date(date);
+    const normalized = ((asDate.getHours() % 24) + 24) % 24;
+    if (normalized === 0) return "midnight";
+    if (normalized === 12) return "midday";
+    const hour = formatHour12(normalized);
+    return `${hour.hour}${hour.suffix.toLowerCase()}`;
+  };
+
   const describeWhen = (date, fallbackBucketDate = date) => {
     const asDate = date instanceof Date ? date : new Date(date);
     const delta = asDate.getTime() - now.getTime();
     const dayShort = getDayName(asDate, "short");
     if (delta <= ONE_DAY_MS) {
-      const hour = formatHour12(asDate.getHours());
-      return `${dayShort} ${hour.hour}${hour.suffix.toLowerCase()}`;
+      return `${dayShort} ${formatSummaryHour(asDate)}`;
     }
     return `${dayShort} ${formatBucket(fallbackBucketDate.getHours()).toLowerCase()}`;
   };
@@ -1964,6 +2035,17 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
 
   const lines = [];
 
+  const currentWindGust = Number.isFinite(currentConditions?.currentGust)
+    ? currentConditions.currentGust
+    : hourlyPoints.length > 0
+      ? (hourlyPoints[0].gust ?? 0)
+      : 0;
+  const currentRainLevel = getRainAlertLevel(currentConditions?.weatherCode);
+  const currentRainText =
+    currentConditions?.weatherText ||
+    WMO_DESCRIPTIONS[currentConditions?.weatherCode] ||
+    "rain";
+
   let windAlertInAwning = false;
 
   // ---- Awning Warning (wind/awning actions only, renamed from Next Action Required) ----
@@ -1984,9 +2066,7 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
           ? `${getDayName(windBreach.date, "short")} ${windBreach.period}`
           : describeWhen(windBreach.date);
 
-      const currentGust =
-        hourlyPoints.length > 0 ? (hourlyPoints[0].gust ?? 0) : 0;
-      const currentLevel = gustLevel(currentGust);
+      const currentLevel = gustLevel(currentWindGust);
       const futureGusts = hourlyPoints
         .slice(0, Math.min(4, hourlyPoints.length))
         .map((p) => p.gust ?? 0);
@@ -2001,22 +2081,39 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
             ? "KEEP AWNING STOWED - Winds at alarm level easing soon but will increase again around Sat 7am"
             : "Winds at alarm level — stow the awning and secure all outdoor equipment now.";
       } else if (currentLevel === 1) {
-        awningActionLine =
-          gustTrend < -2
-            ? "Gusts dropping but still at caution level — keep awning stowed until fully clear."
-            : "Winds at caution level — keep the awning stowed.";
+        if (isAlarm) {
+          awningActionLine = `Caution-level winds continue now and are forecast to rise to alarm level around ${timeRef} — keep the awning stowed and secure outdoor equipment.`;
+        } else {
+          const easingText =
+            cautionDropIdx >= 0
+              ? ` Conditions are expected to ease below caution around ${describeWhen(timeline[cautionDropIdx].date ?? timeline[cautionDropIdx])}.`
+              : "";
+          awningActionLine =
+            gustTrend < -2
+              ? `Caution-level winds continue but are easing — keep awning stowed until fully clear.${easingText}`
+              : `Caution-level winds continue — keep the awning stowed.${easingText}`;
+        }
       } else if (isImminent) {
         awningActionLine = isAlarm
           ? "Winds about to reach alarm level — bring in the awning and secure outdoor equipment now."
           : "Caution-level gusts imminent — secure the awning before they arrive.";
       } else {
         const awningDaylightOnly = settings.awningDaylightOnly !== false;
+        const awningNotifyHours = Number(
+          settings.awningNotifyHoursBeforeDark ?? 2,
+        );
+        const darkHour = 21;
         const alarmHour = windBreach.date.getHours();
         const isAlarmAtNight = alarmHour >= 20 || alarmHour < 6;
         if (isAlarm && awningDaylightOnly && isAlarmAtNight) {
           const duskDate = new Date(windBreach.date);
           if (alarmHour < 6) duskDate.setDate(duskDate.getDate() - 1);
-          duskDate.setHours(19, 0, 0, 0);
+          const advisoryHour = Math.max(0, darkHour - awningNotifyHours);
+          const advisoryWholeHour = Math.floor(advisoryHour);
+          const advisoryMinutes = Math.round(
+            (advisoryHour - advisoryWholeHour) * 60,
+          );
+          duskDate.setHours(advisoryWholeHour, advisoryMinutes, 0, 0);
           if (now >= duskDate) {
             awningActionLine = `Bring in the awning now — alarm-level gusts are expected tonight (around ${timeRef}).`;
           } else {
@@ -2075,9 +2172,16 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
           }
           break;
         case "rain":
-          nonAwningLine = isImminent
-            ? "Close windows and take action to protect against rain now."
-            : `Close windows and prepare for rain expected from ${timeRef}.`;
+          if (currentRainLevel >= 1) {
+            nonAwningLine =
+              currentRainLevel >= 2
+                ? `Heavy rain is already occurring (${currentRainText.toLowerCase()}) — keep windows closed and protect gear now.`
+                : `Rain is already occurring (${currentRainText.toLowerCase()}) — keep windows closed and protect gear.`;
+          } else {
+            nonAwningLine = isImminent
+              ? "Close windows and take action to protect against rain now."
+              : `Close windows and prepare for rain expected from ${timeRef}.`;
+          }
           break;
         case "solar": {
           const solarLbl = nonWindBreach.solarLabel || "Low";
@@ -2259,6 +2363,8 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
       `<div style="margin-top:10px"><strong>7 day lookahead:</strong></div>`,
     );
 
+    const lookaheadTableRows = [];
+
     summaryRows.forEach((entry, dayIndex) => {
       const dayLabel = `${getDayName(entry.date, "long")} ${entry.date.getDate()} ${entry.date.toLocaleDateString(undefined, { month: "short" })}`;
       const alerts = [];
@@ -2347,12 +2453,15 @@ function updateLookaheadSummary(segments, hourlyPoints = [], summaryRows = []) {
         );
       }
 
-      if (alerts.length) {
-        lines.push(
-          `<div>• <strong>${dayLabel}:</strong> ${alerts.join("; ")}.</div>`,
-        );
-      }
+      const summaryText = alerts.length ? `${alerts.join("; ")}.` : "No concerns.";
+      lookaheadTableRows.push(
+        `<tr><td class="lookahead-day">${dayLabel}</td><td class="lookahead-text">${summaryText}</td></tr>`,
+      );
     });
+
+    lines.push(
+      `<table class="lookahead-mini-table"><tbody>${lookaheadTableRows.join("")}</tbody></table>`,
+    );
   }
 
   container.innerHTML = lines.join("");
@@ -2451,7 +2560,199 @@ function getSegmentAlertMeta(segment) {
   };
 }
 
-function buildForecast(data) {
+function setNext24StatusPill(elementId, level, label) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.classList.remove("next24-ok", "next24-caution", "next24-alarm");
+  if (level === "alarm") el.classList.add("next24-alarm");
+  else if (level === "caution") el.classList.add("next24-caution");
+  else el.classList.add("next24-ok");
+  el.textContent = label;
+}
+
+function setNext24Detail(elementId, text = "") {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.textContent = text || "";
+}
+
+function updateNext24Overview(segments, hourlyPoints, currentConditions = null) {
+  if (!segments || !segments.length) return;
+
+  const tempState = segments.reduce(
+    (state, segment) => {
+      const minTemp = segment.minTemp;
+      const maxTemp = segment.maxTemp;
+
+      if (Number.isFinite(minTemp)) {
+        if (minTemp <= settings.minTempAlarm) {
+          const delta = settings.minTempAlarm - minTemp;
+          if (state.level < 2 || delta > state.delta) {
+            return { level: 2, value: minTemp, delta };
+          }
+        } else if (minTemp <= settings.minTempCaution && state.level < 2) {
+          const delta = settings.minTempCaution - minTemp;
+          if (state.level < 1 || delta > state.delta) {
+            state = { level: 1, value: minTemp, delta };
+          }
+        }
+      }
+
+      if (Number.isFinite(maxTemp)) {
+        if (maxTemp >= settings.maxTempAlarm) {
+          const delta = maxTemp - settings.maxTempAlarm;
+          if (state.level < 2 || delta > state.delta) {
+            return { level: 2, value: maxTemp, delta };
+          }
+        } else if (maxTemp >= settings.maxTempCaution && state.level < 2) {
+          const delta = maxTemp - settings.maxTempCaution;
+          if (state.level < 1 || delta > state.delta) {
+            state = { level: 1, value: maxTemp, delta };
+          }
+        }
+      }
+
+      return state;
+    },
+    { level: 0, value: null, delta: -Infinity },
+  );
+
+  const windState = segments.reduce(
+    (state, segment) => {
+      const gust = segment.maxGust;
+      if (!Number.isFinite(gust)) return state;
+      if (gust >= settings.maxWindGustAlarm) {
+        const delta = gust - settings.maxWindGustAlarm;
+        if (state.level < 2 || delta > state.delta) {
+          return { level: 2, value: gust, delta };
+        }
+      } else if (gust >= settings.maxWindGustCaution && state.level < 2) {
+        const delta = gust - settings.maxWindGustCaution;
+        if (state.level < 1 || delta > state.delta) {
+          return { level: 1, value: gust, delta };
+        }
+      }
+      return state;
+    },
+    { level: 0, value: null, delta: -Infinity },
+  );
+
+  const rainState = segments.reduce(
+    (state, segment) => {
+      const code = segment.code;
+      const level = getRainAlertLevel(code);
+      if (!level) return state;
+      const severity = getWeatherSeverity(code);
+      if (
+        level > state.level ||
+        (level === state.level && severity > state.severity)
+      ) {
+        return { level, code, severity };
+      }
+      return state;
+    },
+    { level: 0, code: null, severity: -Infinity },
+  );
+
+  const daytimeRadiation = hourlyPoints
+    .filter(
+      (point) =>
+        point.timeClass === "time-day" &&
+        Number.isFinite(point.radiation) &&
+        point.radiation >= 0,
+    )
+    .map((point) => point.radiation);
+
+  let solarLabel = "Low";
+  if (daytimeRadiation.length) {
+    const avgRadiation =
+      daytimeRadiation.reduce((sum, value) => sum + value, 0) /
+      daytimeRadiation.length;
+    const solar = getSolarRatingFromRadiation(avgRadiation, "time-day");
+    solarLabel = solar?.label || "Low";
+  }
+
+  const tempValueText = Number.isFinite(tempState.value)
+    ? `${Math.round(tempState.value)}°C`
+    : null;
+  const windValueText = Number.isFinite(windState.value)
+    ? `${Math.round(windState.value)} km/h`
+    : null;
+
+  const rainText = rainState.code
+    ? (WMO_DESCRIPTIONS[rainState.code] || "Rain").toLowerCase()
+    : "no rain";
+
+  const tempLabel =
+    tempState.level === 2 ? "Alarm" : tempState.level === 1 ? "Caution" : "OK";
+  const windLabel =
+    windState.level === 2 ? "Alarm" : windState.level === 1 ? "Caution" : "OK";
+
+  setNext24Detail(
+    "next24TempDetail",
+    tempState.level > 0 && tempValueText ? tempValueText : "",
+  );
+  setNext24Detail(
+    "next24WindDetail",
+    windState.level > 0 && windValueText ? windValueText : "",
+  );
+
+  setNext24StatusPill(
+    "next24TempStatus",
+    tempState.level === 2
+      ? "alarm"
+      : tempState.level === 1
+        ? "caution"
+        : "ok",
+    tempLabel,
+  );
+  setNext24StatusPill(
+    "next24WindStatus",
+    windState.level === 2
+      ? "alarm"
+      : windState.level === 1
+        ? "caution"
+        : "ok",
+    windLabel,
+  );
+
+  const currentRainLevel = getRainAlertLevel(currentConditions?.weatherCode);
+  if (currentRainLevel > rainState.level) {
+    const currentRainDesc = (
+      currentConditions?.weatherText ||
+      WMO_DESCRIPTIONS[currentConditions?.weatherCode] ||
+      "rain"
+    ).toLowerCase();
+    setNext24StatusPill(
+      "next24RainStatus",
+      currentRainLevel === 2 ? "alarm" : "caution",
+      currentRainLevel === 2 ? "Alarm" : "Caution",
+    );
+    setNext24Detail("next24RainDetail", currentRainDesc);
+  } else {
+    setNext24StatusPill(
+      "next24RainStatus",
+      rainState.level === 2
+        ? "alarm"
+        : rainState.level === 1
+          ? "caution"
+          : "ok",
+      rainState.level === 2
+        ? "Alarm"
+        : rainState.level === 1
+          ? "Caution"
+          : "No rain",
+    );
+    setNext24Detail("next24RainDetail", rainState.level > 0 ? rainText : "");
+  }
+
+  const solarEl = document.getElementById("next24SolarStatus");
+  if (solarEl) {
+    solarEl.textContent = solarLabel;
+  }
+}
+
+function buildForecast(data, currentConditions = window.cachedCurrentConditions || null) {
   const headerRow = document.getElementById("forecast24HeaderRow");
   const body24 = document.getElementById("forecast24Body");
   const rowsSummary = document.getElementById("forecastRowsSummary");
@@ -2577,6 +2878,8 @@ function buildForecast(data) {
       timeClass: getSegmentTimeClass(new Date(times[idx])),
     });
   }
+
+  updateNext24Overview(segments, hourlyPoints, currentConditions);
 
   renderHourlyForecastChart({
     times: times.slice(start, end),
@@ -2810,7 +3113,7 @@ function buildForecast(data) {
   }
 
   const summaryRows = Object.values(dayStats).sort((a, b) => a.date - b.date);
-  updateLookaheadSummary(segments, hourlyPoints, summaryRows);
+  updateLookaheadSummary(segments, hourlyPoints, summaryRows, currentConditions);
 
   const header = document.getElementById("forecastSummaryHeader");
   if (header) {
@@ -3060,17 +3363,38 @@ async function fetchWeather(lat, lon) {
 
     try {
       const activeAlerts = await fetchActiveAlerts(lat, lon);
+      const alertsBanner = document.getElementById("wxAlertsBanner");
+      const alertsWideWrap = document.getElementById("wxAlertsWideWrap");
       if (activeAlerts.length) {
         setTextById("wxAlerts", activeAlerts.join("; "));
+        alertsBanner?.classList.add("has-alert");
+        alertsBanner?.classList.remove("no-alert");
+        alertsWideWrap?.classList.remove("hidden");
       } else {
         setTextById("wxAlerts", "No active weather warnings");
+        alertsBanner?.classList.add("no-alert");
+        alertsBanner?.classList.remove("has-alert");
+        alertsWideWrap?.classList.remove("hidden");
       }
     } catch (alertError) {
       console.warn("Weather alerts unavailable", alertError);
       setTextById("wxAlerts", "No active weather warnings");
+      const alertsBanner = document.getElementById("wxAlertsBanner");
+      const alertsWideWrap = document.getElementById("wxAlertsWideWrap");
+      alertsBanner?.classList.add("no-alert");
+      alertsBanner?.classList.remove("has-alert");
+      alertsWideWrap?.classList.remove("hidden");
     }
 
     setTextById("updatedInfo", `Updated: ${c.time}`);
+
+    window.cachedCurrentConditions = {
+      time: c.time,
+      weatherCode: c.weathercode,
+      weatherText: readableDesc,
+      currentWindSpeed: c.windspeed,
+      currentGust: c.windspeed,
+    };
 
     // Forecast table (hourly + 6h steps) from hourly payload
 
@@ -3096,7 +3420,7 @@ async function fetchWeather(lat, lon) {
       Array.isArray(hourly.windgusts_10m);
 
     if (hasForecast) {
-      buildForecast(hourly);
+      buildForecast(hourly, window.cachedCurrentConditions);
       document.getElementById("forecastData").classList.remove("hidden");
       document.getElementById("forecastError").classList.add("hidden");
       document.getElementById("forecastStatus").textContent = "Forecast ready.";
@@ -3120,6 +3444,8 @@ async function fetchWeather(lat, lon) {
     wxStatus.textContent = "";
     wxStatus.style.display = "none";
   } catch (e) {
+    const alertsWideWrap = document.getElementById("wxAlertsWideWrap");
+    alertsWideWrap?.classList.add("hidden");
     const todaySolarForecastEl = document.getElementById(
       "wxTodaySolarForecast",
     );

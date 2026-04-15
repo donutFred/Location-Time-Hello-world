@@ -5,8 +5,9 @@
       "label": "Serve WeatherWarning locally",
       "type": "shell",
       "command": "python3",
-      "args": ["-m", "http.server", "8081"],
-      "isBackground": true
+      "args": ["-m", "http.server", "8082"],
+      "isBackground": true,
+      "problemMatcher": []
     }
   ]
 }

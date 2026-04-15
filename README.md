@@ -14,3 +14,8 @@ Note, this is my first intro to coding since 1995 other than Excel Visual Basic!
 Go easy on me please :)
 
 For now this is the basic website javascript version - I'm hoping that an iPhone app version or widget will happen next.
+
+To run:
+python3 -m http.server 8082
+(or whatever port you choose)
+then Open in your browser at http://localhost:8082
