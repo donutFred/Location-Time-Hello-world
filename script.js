@@ -286,6 +286,20 @@ function hideLocationPermissionHelp() {
 
 initLocationHelpChooser();
 
+function isPotentiallySecureLocalhost() {
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function isGeolocationBlockedByInsecureContext() {
+  return !window.isSecureContext && !isPotentiallySecureLocalhost();
+}
+
+function getInsecureContextLocationMessage() {
+  const host = window.location.hostname || "this host";
+  return `Location is blocked because this page is not using a secure origin (HTTPS). Current host: ${host}.`;
+}
+
 function setPageSectionsVisible(visible) {
   const cards = document.querySelectorAll("main.container .card");
   const footer = document.querySelector("footer");
@@ -1101,12 +1115,20 @@ function showError(err) {
   const retryButton = document.getElementById("retryLocationButton");
   if (retryButton) retryButton.style.display = "block";
 
+  const insecureContext = isGeolocationBlockedByInsecureContext();
+
   switch (err.code) {
     case err.PERMISSION_DENIED:
       locStatus.textContent = "Permission denied.";
-      locErr.textContent =
-        "Location permission is blocked for this page. Use the step-by-step guide below. If needed, choose your browser and operating system, then click Show steps.";
-      showLocationPermissionHelp("Location permission was denied.");
+      if (insecureContext) {
+        locErr.textContent =
+          "Location is blocked because this page is being opened over HTTP. On iPhone and most browsers, geolocation requires HTTPS (or localhost on the same device).";
+        showLocationPermissionHelp(getInsecureContextLocationMessage());
+      } else {
+        locErr.textContent =
+          "Location permission is blocked for this page. Use the step-by-step guide below. If needed, choose your browser and operating system, then click Show steps.";
+        showLocationPermissionHelp("Location permission was denied.");
+      }
       break;
     case err.POSITION_UNAVAILABLE:
       locStatus.textContent = "Location unavailable.";
@@ -1144,14 +1166,32 @@ setPageSectionsVisible(false);
 
 // Request location when the page loads (HTTPS required on most browsers)
 if ("geolocation" in navigator) {
-  locStatus.textContent = "Waiting for your location...";
-  setManualLocationButtonLabel(false);
-  startLocationWaitTimer();
-  navigator.geolocation.getCurrentPosition(showPosition, showError, {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0,
-  });
+  if (isGeolocationBlockedByInsecureContext()) {
+    setPageSectionsVisible(false);
+    locStatus.textContent = "Location blocked on non-secure page.";
+    locErr.classList.remove("hidden");
+    locErr.textContent =
+      "This page is loaded over HTTP, so location access is blocked on many devices (especially iPhone). Open the site over HTTPS, or use localhost on the same device.";
+    setWeatherBlockedByLocation();
+    showLocationPermissionHelp(getInsecureContextLocationMessage());
+    setManualLocationVisible(true);
+    setManualLocationButtonLabel(false);
+    setManualLocationMessage(
+      "Auto location is unavailable on non-secure pages. Enter latitude/longitude or suburb/city below.",
+      false,
+    );
+    const retryButton = document.getElementById("retryLocationButton");
+    if (retryButton) retryButton.style.display = "none";
+  } else {
+    locStatus.textContent = "Waiting for your location...";
+    setManualLocationButtonLabel(false);
+    startLocationWaitTimer();
+    navigator.geolocation.getCurrentPosition(showPosition, showError, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    });
+  }
 } else {
   setPageSectionsVisible(false);
   locStatus.textContent = "Geolocation not supported in this browser.";
@@ -1169,6 +1209,15 @@ if ("geolocation" in navigator) {
 const retryButton = document.getElementById("retryLocationButton");
 if (retryButton) {
   retryButton.addEventListener("click", () => {
+    if (isGeolocationBlockedByInsecureContext()) {
+      locStatus.textContent = "Location blocked on non-secure page.";
+      locErr.classList.remove("hidden");
+      locErr.textContent =
+        "Retry cannot work on HTTP. Open the site over HTTPS, or use localhost on the same device.";
+      showLocationPermissionHelp(getInsecureContextLocationMessage());
+      return;
+    }
+
     retryButton.style.display = "none";
     locStatus.textContent = "Retrying location...";
     locErr.classList.add("hidden");
