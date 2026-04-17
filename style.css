@@ -641,14 +641,14 @@ h3 {
 }
 
 .today-solar-forecast-value.solar-cell {
-.legend-now-marker {
-  color: rgba(255, 175, 175, 0.95);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.legend-historical {
-  color: rgba(200, 220, 250, 0.9);
-}
+  .legend-now-marker {
+    color: rgba(255, 175, 175, 0.95);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .legend-historical {
+    color: rgba(200, 220, 250, 0.9);
+  }
   background: transparent !important;
   box-shadow: none !important;
   text-transform: none;

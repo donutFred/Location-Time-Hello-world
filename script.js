@@ -1640,7 +1640,12 @@ function renderHourlyForecastChart(hourlySlice) {
         ? pad.left + plotW
         : (xFor(histLastIdx) + xFor(histLastIdx + 1)) / 2;
     ctx.fillStyle = "rgba(110, 140, 185, 0.16)";
-    ctx.fillRect(pad.left, pad.top, Math.max(0, histBoundaryX - pad.left), plotH);
+    ctx.fillRect(
+      pad.left,
+      pad.top,
+      Math.max(0, histBoundaryX - pad.left),
+      plotH,
+    );
     ctx.strokeStyle = "rgba(150, 185, 235, 0.38)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1830,13 +1835,20 @@ function renderHourlyForecastChart(hourlySlice) {
   // Current time marker
   if (Number.isFinite(nowMs) && labels.length >= 2) {
     const labelTimes = labels.map((label) => new Date(label).getTime());
-    if (Number.isFinite(labelTimes[0]) && Number.isFinite(labelTimes[labelTimes.length - 1])) {
+    if (
+      Number.isFinite(labelTimes[0]) &&
+      Number.isFinite(labelTimes[labelTimes.length - 1])
+    ) {
       let nowX = null;
-      if (nowMs >= labelTimes[0] && nowMs <= labelTimes[labelTimes.length - 1]) {
+      if (
+        nowMs >= labelTimes[0] &&
+        nowMs <= labelTimes[labelTimes.length - 1]
+      ) {
         for (let i = 0; i < labelTimes.length - 1; i++) {
           const t0 = labelTimes[i];
           const t1 = labelTimes[i + 1];
-          if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 <= t0) continue;
+          if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 <= t0)
+            continue;
           if (nowMs >= t0 && nowMs <= t1) {
             const ratio = (nowMs - t0) / (t1 - t0);
             nowX = xFor(i) + (xFor(i + 1) - xFor(i)) * ratio;
@@ -2448,15 +2460,20 @@ function updateLookaheadSummary(
         .filter(Boolean)
         .map((alert) => String(alert))
     : [];
-  const currentAlertTitlesLower = currentAlertTitles.map((a) => a.toLowerCase());
-  const windAlertTitle = currentAlertTitles.find((alert) =>
-    /wind|gale|squall/.test(alert.toLowerCase()),
-  ) || null;
-  const thunderstormAlertTitle = currentAlertTitles.find((alert) =>
-    /thunderstorm|storm/.test(alert.toLowerCase()),
-  ) || null;
+  const currentAlertTitlesLower = currentAlertTitles.map((a) =>
+    a.toLowerCase(),
+  );
+  const windAlertTitle =
+    currentAlertTitles.find((alert) =>
+      /wind|gale|squall/.test(alert.toLowerCase()),
+    ) || null;
+  const thunderstormAlertTitle =
+    currentAlertTitles.find((alert) =>
+      /thunderstorm|storm/.test(alert.toLowerCase()),
+    ) || null;
   const hasCurrentWindWarningFromAlerts = windAlertTitle !== null;
-  const hasCurrentThunderstormWarningFromAlerts = thunderstormAlertTitle !== null;
+  const hasCurrentThunderstormWarningFromAlerts =
+    thunderstormAlertTitle !== null;
   const hasCurrentThunderstorm =
     hasCurrentThunderstormWarningFromAlerts ||
     [95, 96, 99].includes(Number(currentConditions?.weatherCode));
@@ -2504,9 +2521,12 @@ function updateLookaheadSummary(
             ? `Winds are currently at alarm level and are expected to ease toward caution around ${timeRef} — keep the awning stowed and secure outdoor equipment.`
             : "Winds at alarm level — stow the awning and secure all outdoor equipment now.";
       } else if (currentLevel === 1) {
-        const cautionEndRef = cautionDropIdx >= 0
-          ? describeWhen(timeline[cautionDropIdx].date ?? timeline[cautionDropIdx])
-          : null;
+        const cautionEndRef =
+          cautionDropIdx >= 0
+            ? describeWhen(
+                timeline[cautionDropIdx].date ?? timeline[cautionDropIdx],
+              )
+            : null;
         if (isAlarm) {
           awningActionLine = `KEEP AWNING STOWED. Caution-level winds happening now, expected to rise to alarm level around ${timeRef}.`;
         } else if (gustTrend < -2 && cautionEndRef) {
@@ -2625,7 +2645,6 @@ function updateLookaheadSummary(
           break;
         }
       }
-
     } else {
       nonAwningLine = "None";
     }
@@ -3470,7 +3489,8 @@ function buildForecast(
       solarCell.classList.add("solar-cell", "solar-na");
     }
     solarCell.classList.add(segment.timeClass);
-    if (segment.isHistorical) solarCell.classList.add("historical-segment-cell");
+    if (segment.isHistorical)
+      solarCell.classList.add("historical-segment-cell");
     solarRow.appendChild(solarCell);
   });
 
