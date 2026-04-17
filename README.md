@@ -19,3 +19,22 @@ To run:
 python3 -m http.server 8082
 (or whatever port you choose)
 then Open in your browser at http://localhost:8082
+
+## iPhone geolocation fix (not localhost)
+
+iPhone Safari blocks location on plain HTTP. Use your deployed HTTPS domain instead of a LAN IP URL.
+
+Current custom domain in this repo:
+
+https://myawningwarning.disruptivemining.tech
+
+If HTTPS is not working yet, configure GitHub Pages:
+
+1. Push your latest changes to `main`.
+2. In GitHub repo settings, open **Pages**.
+3. Set source to deploy from `main` (root) if not already set.
+4. Set Custom domain to `myawningwarning.disruptivemining.tech`.
+5. Wait for DNS check to pass, then enable **Enforce HTTPS**.
+6. Wait a few minutes for certificate provisioning, then open the HTTPS URL on iPhone.
+
+Important: geolocation will still fail on iPhone if the TLS certificate does not match your custom domain.
